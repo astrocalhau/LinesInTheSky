@@ -1,0 +1,32 @@
+name = "LinesInTheSky"
+uuid = "d9728b82-4968-4bf9-b5fc-ba00f4b0f81a"
+authors = ["joao "]
+version = "0.1.0"
+
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
+FITSIO = "525bcba6-941b-5504-bd06-fd0dc1a4d2eb"
+GModelFit = "ac42e6ba-c0bf-4fcf-827d-deea44b16255"
+GModelFitViewer = "5d93b50e-5cc7-4feb-a740-ec85257caa01"
+Gnuplot = "dc211083-a33a-5b79-959f-2ff34033469d"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+QSFit = "fea25315-b951-4667-83c9-50e53efab241"
+SortMerge = "041a2d23-8c6e-5597-be73-bf96b5e0dfd4"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+
+[compat]
+CSV = "0.10.15"
+DataFrames = "1.7.0"
+DataStructures = "0.18.22"
+FITSIO = "0.17.5"
+GModelFit = "0.6.0"
+GModelFitViewer = "0.3.0"
+Gnuplot = "1.6.5"
+JSON = "0.21.4"
+QSFit = "0.5.0"
+SortMerge = "1.4.1"
+Statistics = "1.11.1"
+StatsBase = "0.34.5"
