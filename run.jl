@@ -6,7 +6,7 @@ function analyze_single_spec(row)
     mkpath("results/JSON")
     mkpath("results/HTML")
 
-    input_filename = "Input_spectra/$(row[:object_id]).txt"
+    input_filename = "input/spectra/$(row[:object_id]).txt"
     output_filename = "results/JSON/$(row[:object_id]).json"
 
     if !isfile(input_filename)
@@ -83,7 +83,7 @@ function read_results(catalog)
 end
 
 # Read input catalog
-f = FITS("Input_Catalogue/LinesInTheSky_Source.fits")
+f = FITS("input/catalog.fits")
 catalog = DataFrame(f[2])
 close(f)
 
