@@ -35,7 +35,7 @@ end
 
 
 function run_analysis(catalog)
-    Threads.@threads for i in nrow(catalog)
+    Threads.@threads for i in 1:nrow(catalog)
         try
             analyze_single_spec(catalog[i, :])
         catch err
