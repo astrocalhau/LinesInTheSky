@@ -20,6 +20,7 @@ function analyze_single_spec(row)
     println(); println()
     @info "Analyzing file $(input_filename)"
     spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,5], label=string(row[:object_id]), resolution = 450)
+    # spec.y .-= minimum(spec.y)
     recipe = CRecipe{WP9Type1IR}(redshift=row[:Z], use_host_template=true, Av=0.0, n_nuisance=2)
     res = analyze(recipe, spec)
     GModelFit.serialize(output_filename, res.bestfit, res.fsumm)
@@ -31,6 +32,8 @@ function analyze_single_spec(row)
     f = open("results/JSON/$(row[:object_id])_aux.json", "w")
     write(f, JSON.json(aux))
     close(f)
+
+    return res
 end
 
 

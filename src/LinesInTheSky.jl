@@ -147,6 +147,7 @@ function init_recipe!(recipe::CRecipe{T}) where T <: WP9Type1IR
     recipe.line_component = QSFit.SpecLineGauss # type of line profile to use
     recipe.wavelength_range=[500, 20000]  # NISP: 11000, 20000 wavelength range. I altered this one to maybe an extremely low value just to make sure the entire spectrum  is considered when fitting and showing on the viewer.
     recipe.host_template_range = [4000, 30000] #wavelength range to consider for the host templates to be fit
+    # recipe.host_template[:ref_wavelength] = 8000.
 end
 
 
