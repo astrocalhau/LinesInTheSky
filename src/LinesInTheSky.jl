@@ -127,13 +127,14 @@ function add_qso_continuum!(recipe::CRecipe{T}, fp::GModelFit.FitProblem, ith::I
     λ = coords(getdomain(fp, ith))
 
     comp = QSFit.powerlaw(3000)
+    #comp = QSFit.sbpl(3000)
     comp.x0.val = median(λ)
     comp.norm.val = median(values(getdata(fp, ith))) # Can't use Dierckx.Spline1D since it may fail when data is segmented (non-good channels)
     (comp.norm.val < 0)  &&  (comp.norm.val = mad(values(getdata(fp, ith))))
     comp.norm.low = comp.norm.val / 1000.  # ensure contiuum remains positive (needed to estimate EWs)
     comp.alpha.val  = -1.5 #Relevant for power law and cut-off power law
-    comp.alpha.low  = -3 #Relevant for power law and cut-off power law
-    comp.alpha.high =  1 #Relevant for power law and cut-off power law
+    comp.alpha.low  = -5 #Relevant for power law and cut-off power law
+    comp.alpha.high =  5 #Relevant for power law and cut-off power law
     #comp.delta.val = 0.001 #Relevant for SBPL
     #comp.delta.fixed = true #Relevant for SBPL
     getmodel(fp, ith)[:QSOcont] = comp
@@ -190,9 +191,14 @@ function lines_dict(recipe::CRecipe{T}) where T <: WP9Type1IR
     add_line!(recipe, out, :SiVI_19650, NarrowLine)
     add_line!(recipe, out, :CIV_1550, NarrowLine, BroadLine)
     
+    
     haskey(out, :NII_6549)  &&  delete!(out, :NII_6549)
     haskey(out, :NII_6583)  &&  delete!(out, :NII_6583)
     #haskey(out, :OIII_5007_bw)  &&  delete!(out, :OIII_5007_bw)
+    delete!(out, :Ha_na)
+    delete!(out, :Ha_bb)
+    delete!(out, :Hb_na)
+    delete!(out, :MgII_2798_na)
     
     #add_line!(recipe, out, :FeII_9229, NarrowLine)
     #add_line!(recipe, out, :FeII_12570, NarrowLine)
@@ -210,6 +216,16 @@ function lines_dict(recipe::CRecipe{T}) where T <: WP9Type1IR
     return out
 end
 
+import QSFit.QSORecipes.add_iron_opt!
+function add_iron_opt!(recipe::CRecipe{<: WP9Type1IR}, fp::GModelFit.FitProblem, ith::Int)
+    @track_recipe    
+    @invoke add_iron_opt!(recipe::CRecipe{<: Type1}, fp, ith)
+    model = QSFit.QSORecipes.getmodel(fp, ith)
+    if haskey(model, :Ironoptna)
+        model[:Ironoptna].norm.val = 0.
+        model[:Ironoptna].norm.fixed = true
+    end
+end
 
 import QSFit.QSORecipes: add_patch_functs!
 function add_patch_functs!(recipe::CRecipe{<: WP9Type1IR}, fp::GModelFit.FitProblem, ith::Int)
@@ -231,5 +247,7 @@ function add_patch_functs!(recipe::CRecipe{<: WP9Type1IR}, fp::GModelFit.FitProb
         model[:Ha_na].fwhm.patch = @fd (m, v) -> v * m[:Ha_br].fwhm
     end
 end
+
+
 
 end # module LinesInTheSky

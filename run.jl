@@ -1,4 +1,4 @@
-using FITSIO, Statistics, DataFrames, JSON, DataStructures, CSV
+using FITSIO, Statistics, DataFrames, JSON, DataStructures, CSV, Revise
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
 using LinesInTheSky
 
@@ -20,7 +20,7 @@ function analyze_single_spec(row)
     println(); println()
     @info "Analyzing file $(input_filename)"
     spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,5], label=string(row[:object_id]), resolution = 450)
-    recipe = CRecipe{WP9Type1IR}(redshift=row[:Z], use_host_template=false, Av=0.0)
+    recipe = CRecipe{WP9Type1IR}(redshift=row[:Z], use_host_template=true, Av=0.0, n_nuisance=2)
     res = analyze(recipe, spec)
     GModelFit.serialize(output_filename, res.bestfit, res.fsumm)
     GModelFitViewer.serialize_html(filename="results/HTML/$(row[:object_id]).html", res)
@@ -48,14 +48,14 @@ end
 
 
 function read_results(catalog)
-    out = DataFrame(ID=Int[], Redshift=Float64[], redchisq=Float64[], SNR=Float64[], Html_serial=String[])
+    out = DataFrame(ID=Int[], Redshift=Float64[],Source=String[], redchisq=Float64[], SNR=Float64[], NPOINTS=Float64[], Html_serial=String[])
     for i in 1:nrow(catalog)
         filename = "results/JSON/$(catalog[i, :object_id]).json"
         if isfile(filename)
             @info "Reading $filename ..."
             bestfit, fsumm = GModelFit.deserialize(filename)
             aux = JSON.Parser.parsefile("results/JSON/$(catalog[i, :object_id])_aux.json")
-            push!(out, [catalog[i, :object_id], catalog[i, :Z], fsumm.fitstat, aux["SNR"], "", fill(missing, ncol(out)-5)...])
+            push!(out, [catalog[i, :object_id], catalog[i, :Z], catalog[i, :CAT], fsumm.fitstat, aux["SNR"],fsumm.ndata, "", fill(missing, ncol(out)-7)...])
             out[end, :Html_serial] = "results/HTML/$(catalog[i, :object_id]).html"
             for (cname, comp) in bestfit
                  for (pname, par) in comp
@@ -89,6 +89,7 @@ close(f)
 
 # Run analysis
 run_analysis(catalog)
+
 
 # Read results from JSON files
 results = read_results(catalog)
