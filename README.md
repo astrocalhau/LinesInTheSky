@@ -20,6 +20,6 @@ Pkg.instantiate()
 ```
 (note: this step is necessary only the first time you run the code)
 
-- Depending on whether you want to analyze Euclid or DESI spectra, run the analisys with: `include("run_Euclid.jl") or`include("run_DESI.jl") .
+- Depending on whether you want to analyze Euclid or DESI spectra, run the analisys with: `include("run_Euclid.jl")` or `include("run_DESI.jl")`.
 
-- The output catalog will be written in `results_instrument/QSFIT_RESULTS.fits` and individual output files will be located in `results_instrument/HTML`, where instrument == DESI or Euclid according to the file run before.
+- The output catalog will be written in `results_instrument/QSFIT_RESULTS.fits` and individual output files will be located in `results_instrument/HTML`, where `instrument == DESI` or `Euclid` according to the file run before.
