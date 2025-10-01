@@ -85,7 +85,7 @@ function read_results(output_path, catalog)
 end
 
 
-input_path  =   "input_DESI"
+input_path  =   "input/input_DESI"
 output_path = "results_DESI"
 
 # Read input catalog
