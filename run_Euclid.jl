@@ -2,12 +2,13 @@ using FITSIO, Statistics, DataFrames, JSON, DataStructures, CSV, Revise
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
 using LinesInTheSky
 
-function analyze_single_spec(row)
-    mkpath("results/JSON")
-    mkpath("results/HTML")
 
-    input_filename = "input/spectra/$(row[:object_id]).txt"
-    output_filename = "results/JSON/$(row[:object_id]).json"
+function analyze_single_spec(input_path, output_path, row)
+    mkpath("$(output_path)/JSON")
+    mkpath("$(output_path)/HTML")
+
+    input_filename = "$(input_path)/spectra/$(row[:object_id]).txt"
+    output_filename = "$(output_path)/JSON/$(row[:object_id]).json"
 
     if !isfile(input_filename)
         error("Input file $input_filename do not exists.")
@@ -20,16 +21,15 @@ function analyze_single_spec(row)
     println(); println()
     @info "Analyzing file $(input_filename)"
     spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,5], label=string(row[:object_id]), resolution = 450)
-    # spec.y .-= minimum(spec.y)
     recipe = CRecipe{WP9Type1IR}(redshift=row[:Z], use_host_template=true, Av=0.0, n_nuisance=2)
     res = analyze(recipe, spec)
     GModelFit.serialize(output_filename, res.bestfit, res.fsumm)
-    GModelFitViewer.serialize_html(filename="results/HTML/$(row[:object_id]).html", res)
+    GModelFitViewer.serialize_html(filename="$(output_path)/HTML/$(row[:object_id]).html", res)
 
     # Write additional info in a JSON file
     aux = Dict{Symbol, Any}()
     aux[:SNR] = median(abs.(values(res.data) ./ uncerts(res.data)))
-    f = open("results/JSON/$(row[:object_id])_aux.json", "w")
+    f = open("$(output_path)/JSON/$(row[:object_id])_aux.json", "w")
     write(f, JSON.json(aux))
     close(f)
 
@@ -37,10 +37,10 @@ function analyze_single_spec(row)
 end
 
 
-function run_analysis(catalog)
+function run_analysis(input_path, output_path, catalog)
     Threads.@threads for i in 1:nrow(catalog)
         try
-            analyze_single_spec(catalog[i, :])
+            analyze_single_spec(input_path, output_path, catalog[i, :])
         catch err
             display(err)
             println("Failed to fit spectrum for $(catalog[i, :object_id]).")
@@ -49,17 +49,16 @@ function run_analysis(catalog)
 end
 
 
-
-function read_results(catalog)
+function read_results(output_path, catalog)
     out = DataFrame(ID=Int[], Redshift=Float64[],Source=String[], redchisq=Float64[], SNR=Float64[], NPOINTS=Float64[], Html_serial=String[])
     for i in 1:nrow(catalog)
-        filename = "results/JSON/$(catalog[i, :object_id]).json"
+        filename = "$(output_path)/JSON/$(catalog[i, :object_id]).json"
         if isfile(filename)
             @info "Reading $filename ..."
             bestfit, fsumm = GModelFit.deserialize(filename)
-            aux = JSON.Parser.parsefile("results/JSON/$(catalog[i, :object_id])_aux.json")
+            aux = JSON.Parser.parsefile("$(output_path)/JSON/$(catalog[i, :object_id])_aux.json")
             push!(out, [catalog[i, :object_id], catalog[i, :Z], catalog[i, :CAT], fsumm.fitstat, aux["SNR"],fsumm.ndata, "", fill(missing, ncol(out)-7)...])
-            out[end, :Html_serial] = "results/HTML/$(catalog[i, :object_id]).html"
+            out[end, :Html_serial] = "$(output_path)/HTML/$(catalog[i, :object_id]).html"
             for (cname, comp) in bestfit
                  for (pname, par) in comp
                      colname = Symbol(cname, :_, pname)
@@ -85,17 +84,20 @@ function read_results(catalog)
     return out
 end
 
+
+input_path  =   "input_Euclid"
+output_path = "results_Euclid"
+
 # Read input catalog
-f = FITS("input/catalog.fits")
+f = FITS("$(input_path)/catalog.fits")
 catalog = DataFrame(f[2])
 close(f)
 
 # Run analysis
-run_analysis(catalog)
-
+run_analysis(input_path, output_path, catalog)
 
 # Read results from JSON files
-results = read_results(catalog)
+results = read_results(output_path, catalog)
 
 # Write results in a FITS file
 data = OrderedDict{String, Vector}()
@@ -104,6 +106,6 @@ for cname in names(results)
     typ = nonmissingtype(eltype(col))
     data[cname] = replace(col, missing => (typ <: Number  ?  -1  :  ""))
 end
-f = FITS("results/QSFIT_RESULTS.fits", "w")
+f = FITS("$(output_path)/QSFIT_RESULTS.fits", "w")
 write(f, data)
 close(f)
