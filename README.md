@@ -6,7 +6,7 @@ Paper: (TODO: add arXiv, ADS link)
 - Install Julia (https://julialang.org/downloads/);
 - Download and unzip the [code](https://github.com/astrocalhau/LinesInTheSky/archive/refs/heads/main.zip);
 
-- Download and unzip [data](https://drive.google.com/file/d/1p-4CfG_O5aWJwiIBUAkyff2sg8mwAzRF/view?usp=drive_link) in the `LinesInTheSky` folder;
+- Download and unzip data in the `LinesInTheSky` folder;
 
 - In the `LinesInTheSky` folder start julia with the following command line:
 ```
@@ -23,3 +23,5 @@ Pkg.instantiate()
 - Depending on whether you want to analyze Euclid or DESI spectra, run the analisys with: `include("run_Euclid.jl")` or `include("run_DESI.jl")`.
 
 - The output catalog will be written in `results_instrument/QSFIT_RESULTS.fits` and individual output files will be located in `results_instrument/HTML`, where `instrument == DESI` or `Euclid` according to the file run before.
+
+More information on the running of QSFit and the production of user-defined recipes can be found in QSFit's official [page](https://gcalderone.github.io/QSFit.jl/)
