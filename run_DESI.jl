@@ -30,18 +30,8 @@ function analyze_single_spec(input_path, output_path, row)
     println(); println()
     @info "Analyzing file $(input_filename)"
     spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,3], resolution= 2857, label=string(row[:id_DESI_DR1]))
-    recipe = CRecipe{WP9Type1IR}(redshift=row[:Z], use_host_template=false, Av=0.0)
-    resNoHost = analyze(recipe, spec)
-
-    recipe.use_host_template = true
-    resWithHost = analyze(recipe, spec)
-
-    if resNoHost.fsumm.fitstat < resWithHost.fsumm.fitstat
-        res = resNoHost
-    else
-        res = resWithHost
-    end
-
+    recipe = CRecipe{Type1}(redshift=row[:Z], use_host_template=true, Av=0.0)
+    res = analyze(recipe, spec)
     GModelFit.serialize(output_filename, res.bestfit, res.fsumm)
     GModelFitViewer.serialize_html(filename="$(output_path)/HTML/$(row[:id_DESI_DR1]).html", res)
 
