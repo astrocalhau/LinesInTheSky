@@ -173,7 +173,15 @@ data = OrderedDict{String, Vector}()
 for cname in names(results)
     col = results[:, cname]
     typ = nonmissingtype(eltype(col))
-    data[cname] = replace(col, missing => (typ <: Number  ?  -1  :  ""))
+    if typ <: AbstractFloat
+        data[cname] = replace(col, missing => NaN)
+    elseif typ <: Integer
+        data[cname] = replace(col, missing => -1)
+    elseif typ <: String
+        data[cname] = replace(col, missing => "")
+    else
+        error("Unsupported data type: $(typ)")
+    end
 end
 f = FITS("$(output_path)/QSFIT_RESULTS.fits", "w")
 write(f, data)

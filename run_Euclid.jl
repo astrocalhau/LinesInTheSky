@@ -29,7 +29,6 @@ function analyze_single_spec(input_path, output_path, row)
 
     println(); println()
     @info "Analyzing file $(input_filename)"
-    # TODO: is the resolution needed here?
     spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,5], label=string(row[:object_id]), resolution = 450)
     recipe = CRecipe{WP9Type1IR}(redshift=row[:Z], use_host_template=false, Av=0.0, n_nuisance=2)
     resNoHost = analyze(recipe, spec)
@@ -173,7 +172,15 @@ data = OrderedDict{String, Vector}()
 for cname in names(results)
     col = results[:, cname]
     typ = nonmissingtype(eltype(col))
-    data[cname] = replace(col, missing => (typ <: Number  ?  -1  :  ""))
+    if typ <: AbstractFloat
+        data[cname] = replace(col, missing => NaN)
+    elseif typ <: Integer
+        data[cname] = replace(col, missing => -1)
+    elseif typ <: String
+        data[cname] = replace(col, missing => "")
+    else
+        error("Unsupported data type: $(typ)")
+    end
 end
 f = FITS("$(output_path)/QSFIT_RESULTS.fits", "w")
 write(f, data)
