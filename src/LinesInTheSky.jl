@@ -148,6 +148,8 @@ function init_recipe!(recipe::CRecipe{T}) where T <: WP9Type1IR
     recipe.wavelength_range=[1216, 20000]
     recipe.host_template_range = [4000, 30000] #wavelength range to consider for the host templates to be fit
     # recipe.host_template[:ref_wavelength] = 8000.
+    recipe.min_spectral_coverage[:Ironuv]= 0.1
+    recipe.min_spectral_coverage[:Ironopt]= 0.1
 end
 
 
