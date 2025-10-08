@@ -175,8 +175,10 @@ function snr_min_at_redchisq(x; redchisq=3.5, SNR=3)
     return 10^(0.6 * lx + a[2])
 end
 
-results[!, :qcut] = ((results.NPOINTS .> 450) .& (results.SNR .> snr_min_at_redchisq.(results.redchisq)) .& (results.QSOcont_alpha .> -5) .& (results.QSOcont_alpha .<  5) .& (results.QSOcont_norm .> results.QSOcont_norm_unc))
-
+results[!, :qcut] = ((results.NPOINTS .> 450)                                        .&
+                     (results.SNR .> snr_min_at_redchisq.(results.redchisq))         .&
+                     (results.QSOcont_alpha .> -5) .& (results.QSOcont_alpha .<  5)  .&
+                     (results.QSOcont_norm .> results.QSOcont_norm_unc))
 
 # Write results in a FITS file
 data = OrderedDict{String, Vector}()

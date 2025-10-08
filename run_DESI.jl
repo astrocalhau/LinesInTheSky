@@ -16,12 +16,7 @@ function analyze_single_spec(input_path, output_path, row)
     mkpath("$(output_path)/JSON")
     mkpath("$(output_path)/HTML")
     
-    try
-    	input_filename = "$(input_path)/TXT/$(row[:id_DESI_DR1])_$(row[:Z]).txt"
-    catch
-    	input_filename = "$(input_path)/TXT/$(row[:id_DESI_DR1]).txt"
-    end
-    	
+    input_filename = "$(input_path)/TXT/$(row[:id_DESI_DR1]).txt"
     output_filename = "$(output_path)/JSON/$(row[:id_DESI_DR1]).json"
 
     if !isfile(input_filename)
@@ -162,8 +157,7 @@ end
 results.Ledd_mean = 1.26e38 * 10 .^results.MBH_mean
 results.Edd_ratio = results.Lbol_mean ./ results.Ledd_mean
 
-
-#Create Quality cut column
+# Creates Quality cut columns
 function snr_min_at_redchisq(x; redchisq=3.5, SNR=3)
     a = log10.([redchisq, SNR])
     lx = log10(x)
@@ -172,7 +166,8 @@ function snr_min_at_redchisq(x; redchisq=3.5, SNR=3)
     return 10^(0.6 * lx + a[2])
 end
 
-results[!, :qcut] = ((results.NPOINTS .> 7000) .& (results.SNR .> 3))
+results[!, :qcut] = ((results.NPOINTS .> 7000)  .&
+                     (results.SNR .> 3))
 
 
 # Write results in a FITS file
