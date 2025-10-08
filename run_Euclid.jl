@@ -166,6 +166,17 @@ end
 results.Ledd_mean = 1.26e38 * 10 .^results.MBH_mean
 results.Edd_ratio = results.Lbol_mean ./ results.Ledd_mean
 
+# Creates Quality cut columns
+function snr_min_at_redchisq(x; redchisq=3.5, SNR=3)
+    a = log10.([redchisq, SNR])
+    lx = log10(x)
+    (lx < a[1])  &&  (return 10^a[2])
+    lx -= a[1]
+    return 10^(0.6 * lx + a[2])
+end
+
+results[!, :qcut] = ((results.NPOINTS .> 450) .& (results.SNR .> snr_min_at_redchisq.(results.redchisq)) .& (results.QSOcont_alpha .> -5) .& (results.QSOcont_alpha .<  5) .& (results.QSOcont_norm .> results.QSOcont_norm_unc))
+
 
 # Write results in a FITS file
 data = OrderedDict{String, Vector}()
