@@ -15,8 +15,13 @@ end
 function analyze_single_spec(input_path, output_path, row)
     mkpath("$(output_path)/JSON")
     mkpath("$(output_path)/HTML")
-
-    input_filename = "$(input_path)/TXT/$(row[:id_DESI_DR1]).txt"
+    
+    try
+    	input_filename = "$(input_path)/TXT/$(row[:id_DESI_DR1])_$(row[:Z]).txt"
+    catch
+    	input_filename = "$(input_path)/TXT/$(row[:id_DESI_DR1]).txt"
+    end
+    	
     output_filename = "$(output_path)/JSON/$(row[:id_DESI_DR1]).json"
 
     if !isfile(input_filename)
@@ -156,6 +161,18 @@ end
 # Calculates Eddington ratios
 results.Ledd_mean = 1.26e38 * 10 .^results.MBH_mean
 results.Edd_ratio = results.Lbol_mean ./ results.Ledd_mean
+
+
+#Create Quality cut column
+function snr_min_at_redchisq(x; redchisq=3.5, SNR=3)
+    a = log10.([redchisq, SNR])
+    lx = log10(x)
+    (lx < a[1])  &&  (return 10^a[2])
+    lx -= a[1]
+    return 10^(0.6 * lx + a[2])
+end
+
+results[!, :qcut] = ((results.NPOINTS .> 7000) .& (results.SNR .> 3))
 
 
 # Write results in a FITS file
