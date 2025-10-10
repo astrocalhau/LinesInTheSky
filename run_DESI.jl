@@ -2,15 +2,7 @@ using FITSIO, Statistics, DataFrames, JSON, DataStructures, CSV, Revise, Dierckx
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
 using LinesInTheSky
 
-
-function cont_lambdaLlambda(model, wavelength)
-    try
-        return Dierckx.Spline1D(coords(domain(model)), model(:QSOcont), k=1, bc="error")(wavelength) * wavelength * 1e-2
-    catch
-        return NaN
-    end
-end
-
+include("common_functs.jl")
 
 function analyze_single_spec(input_path, output_path, row)
     mkpath("$(output_path)/JSON")
@@ -119,72 +111,23 @@ results = read_results(output_path, catalog)
 
 
 # Calculates Mbh
-results.MBH_Hb_WuShen2022   = 0.91 .+ 0.5  .* log10.(results.L5100) .+ 2 .* log10.(results.Hb_br_fwhm)
-results.MBH_MgII_WuShen2022 = 0.74 .+ 0.62 .* log10.(results.L3000) .+ 2 .* log10.(results.MgII_2798_br_fwhm)
+add_MBH_Hb_WuShen2022!(results)
+add_MBH_MgII_WuShen2022!(results)
+# add_MBH_Ha_ShenLiu2012!(results)
 
-# Ha_norm = results.Ha_br_norm
-# i = findall(.!ismissing.(results.Ha_na_norm))
-# Ha_norm[i] .+= results.Ha_na_norm
-# results.MBH_Ha_ShenLiu2012 = 2.216 .+ 0.564 .* log10.((Ha_norm) .* 1e-2) .+ 1.821 .* log10.(results.Ha_br_fwhm)
-results.MBH_Ha_ShenLiu2012 .= missing
-
-results.MBH_mean .= 0.
-allowmissing!(results, :MBH_mean)
+results.MBH_mean .= NaN
 for i in 1:nrow(results)
-    try
-	    results[i, :MBH_mean] = mean(skipmissing([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022], results[i, :MBH_Ha_ShenLiu2012]]))
-    catch
-        results[i, :MBH_mean] = missing
-    end
+	results[i, :MBH_mean] = mean([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022]])
 end
 
+# Calculates Lbol and Eddington ratios
+add_Lbol_eddratio!(results)
 
-# Calculates Lbol
-results.Lbol_3000 = 5.15e44 .* results.L3000
-results.Lbol_5100 = 9.26e44 .* results.L5100
-results.Lbol_mean .= 0.
-allowmissing!(results, :Lbol_mean)
-for i in 1:nrow(results)
-    try
-	    results[i, :Lbol_mean] = mean(skipmissing([results[i, :Lbol_3000], results[i, :Lbol_5100]]))
-    catch
-        results[i, :Lbol_mean] = missing
-    end        
-end
-
-
-# Calculates Eddington ratios
-results.Ledd_mean = 1.26e38 * 10 .^results.MBH_mean
-results.Edd_ratio = results.Lbol_mean ./ results.Ledd_mean
 
 # Creates Quality cut columns
-function snr_min_at_redchisq(x; redchisq=3.5, SNR=3)
-    a = log10.([redchisq, SNR])
-    lx = log10(x)
-    (lx < a[1])  &&  (return 10^a[2])
-    lx -= a[1]
-    return 10^(0.6 * lx + a[2])
-end
-
 results[!, :qcut] = ((results.NPOINTS .> 7000)  .&
                      (results.SNR .> 3))
 
 
 # Write results in a FITS file
-data = OrderedDict{String, Vector}()
-for cname in names(results)
-    col = results[:, cname]
-    typ = nonmissingtype(eltype(col))
-    if typ <: AbstractFloat
-        data[cname] = replace(col, missing => NaN)
-    elseif typ <: Integer
-        data[cname] = replace(col, missing => -1)
-    elseif typ <: String
-        data[cname] = replace(col, missing => "")
-    else
-        error("Unsupported data type: $(typ)")
-    end
-end
-f = FITS("$(output_path)/QSFIT_RESULTS.fits", "w")
-write(f, data)
-close(f)
+write_fits("$(output_path)/QSFIT_RESULTS.fits", results)
