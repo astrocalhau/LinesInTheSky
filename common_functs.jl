@@ -12,6 +12,7 @@ function cont_lambdaLlambda(model, wavelength)
     end
 end
 
+
 function add_MBH_Hb_WuShen2022!(cc)
     cc[!, :MBH_Hb_WuShen2022] .= NaN
     i = findall((.!isnan.(cc.L5100))          .&

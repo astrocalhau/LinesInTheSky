@@ -40,8 +40,8 @@ function analyze_single_spec(input_path, output_path, row)
     # Write additional info in a JSON file
     aux = Dict{Symbol, Any}()
     aux[:SNR] = median(abs.(values(res.data) ./ uncerts(res.data)))
-    aux[:L3000] = cont_lambdaLlambda(res.bestfit, 3000.)
-    aux[:L5100] = cont_lambdaLlambda(res.bestfit, 5100.)
+    aux[:L3000] = ((res.post[:Quality_flags][:QSOcont] == 0)  ?  cont_lambdaLlambda(res.bestfit, 3000.)  :  NaN)
+    aux[:L5100] = ((res.post[:Quality_flags][:QSOcont] == 0)  ?  cont_lambdaLlambda(res.bestfit, 5100.)  :  NaN)
     aux[:reliable] = Symbol[]
     for cname in keys(res.bestfit)
         if res.post[:Quality_flags][cname] == 0
