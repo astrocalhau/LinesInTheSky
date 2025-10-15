@@ -7,7 +7,7 @@ include("common_functs.jl")
 function analyze_single_spec(input_path, output_path, row)
     mkpath("$(output_path)/JSON")
     mkpath("$(output_path)/HTML")
-    
+
     input_filename = "$(input_path)/TXT/$(row[:id_DESI_DR1]).txt"
     output_filename = "$(output_path)/JSON/$(row[:id_DESI_DR1]).json"
 
@@ -32,8 +32,14 @@ function analyze_single_spec(input_path, output_path, row)
     aux[:SNR] = median(abs.(values(res.data) ./ uncerts(res.data)))
     aux[:L3000] = cont_lambdaLlambda(res.bestfit, 3000.)
     aux[:L5100] = cont_lambdaLlambda(res.bestfit, 5100.)
+    aux[:reliable] = Symbol[]
+    for cname in keys(res.bestfit)
+        if res.post[:Quality_flags][cname] == 0
+            push!(aux[:reliable], cname)
+        end
+    end
     f = open("$(output_path)/JSON/$(row[:id_DESI_DR1])_aux.json", "w")
-    write(f, JSON.json(aux))
+    write(f, JSON.json(aux, allownan=true))
     close(f)
 
     return res
@@ -42,12 +48,12 @@ end
 
 function run_analysis(input_path, output_path, catalog)
     Threads.@threads for i in 1:nrow(catalog)
-		try
-		    analyze_single_spec(input_path, output_path, catalog[i, :])
-		catch err
-		    display(err)
-		    println("Failed to fit spectrum for $(catalog[i, :id_DESI_DR1]).")
-		end
+        try
+            analyze_single_spec(input_path, output_path, catalog[i, :])
+        catch err
+            display(err)
+            println("Failed to fit spectrum for $(catalog[i, :id_DESI_DR1]).")
+        end
     end
 end
 
@@ -62,29 +68,34 @@ function read_results(output_path, catalog)
         if isfile(filename)
             @info "Reading $filename ..."
             bestfit, fsumm = GModelFit.deserialize(filename)
-            aux = JSON.Parser.parsefile("$(output_path)/JSON/$(catalog[i, :id_DESI_DR1])_aux.json")
-            for k in ["L3000", "L5100"]
-                isnothing(aux[k])  &&  (aux[k] = missing)
-            end
+            aux = JSON.parsefile("$(output_path)/JSON/$(catalog[i, :id_DESI_DR1])_aux.json", allownan=true)
             push!(out, [catalog[i, :id_DESI_DR1], catalog[i, :object_id], catalog[i, :Z], fsumm.fitstat, fsumm.ndata,
                         aux["SNR"], aux["L3000"], aux["L5100"], "", fill(missing, ncol(out)-ncol_initial)...])
             out[end, :Html_serial] = "$(output_path)/HTML/$(catalog[i, :id_DESI_DR1]).html"
             for (cname, comp) in bestfit
-                 for (pname, par) in comp
-                     colname = Symbol(cname, :_, pname)
-                     if !(string(colname) in names(out))
-                         out[!,        colname        ] = missings(Float64, nrow(out))
-                         out[!, Symbol(colname, :_unc)] = missings(Float64, nrow(out))
-                     end
+                (cname in [:QSOcont, :Galaxy, :Ironuv, :Ironoptbr, :Ironoptna,
+                           :Ha_br, :Ha_na, :Hb_br, :Hb_na,
+                           :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
 
-                     if isnothing(par.patch)
-                         out[end,        colname        ] = par.val
-                         out[end, Symbol(colname, :_unc)] = par.unc
-                     else
-                         out[end,        colname        ] = par.actual
-                         out[end, Symbol(colname, :_unc)] = NaN
-                     end
-                 end
+                if !(string(cname) * "_reliable" in names(out))
+                    out[!, Symbol(cname, :_reliable)] = missings(Int64, nrow(out))
+                end
+                out[end, Symbol(cname, :_reliable)] = ((string(cname) in aux["reliable"])  ?  1  :  0)
+                for (pname, par) in comp
+                    colname = Symbol(cname, :_, pname)
+                    if !(string(colname) in names(out))
+                        out[!,        colname        ] = missings(Float64, nrow(out))
+                        out[!, Symbol(colname, :_unc)] = missings(Float64, nrow(out))
+                    end
+
+                    if isnothing(par.patch)
+                        out[end,        colname        ] = par.val
+                        out[end, Symbol(colname, :_unc)] = par.unc
+                    else
+                        out[end,        colname        ] = par.actual
+                        out[end, Symbol(colname, :_unc)] = NaN
+                    end
+                end
             end
         end
     end
@@ -117,7 +128,7 @@ add_MBH_MgII_WuShen2022!(results)
 
 results.MBH_mean .= NaN
 for i in 1:nrow(results)
-	results[i, :MBH_mean] = mean([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022]])
+    results[i, :MBH_mean] = mean_handle_NaN([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022]])
 end
 
 # Calculates Lbol and Eddington ratios

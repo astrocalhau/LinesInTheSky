@@ -42,8 +42,14 @@ function analyze_single_spec(input_path, output_path, row)
     aux[:SNR] = median(abs.(values(res.data) ./ uncerts(res.data)))
     aux[:L3000] = cont_lambdaLlambda(res.bestfit, 3000.)
     aux[:L5100] = cont_lambdaLlambda(res.bestfit, 5100.)
+    aux[:reliable] = Symbol[]
+    for cname in keys(res.bestfit)
+        if res.post[:Quality_flags][cname] == 0
+            push!(aux[:reliable], cname)
+        end
+    end
     f = open("$(output_path)/JSON/$(row[:object_id])_aux.json", "w")
-    write(f, JSON.json(aux))
+    write(f, JSON.json(aux, allownan=true))
     close(f)
 
     return res
@@ -63,7 +69,7 @@ end
 
 
 function read_results(output_path, catalog)
-    out = DataFrame(ID=Int[], Redshift=Float64[],Source=String[], redchisq=Float64[], NPOINTS=Float64[], 
+    out = DataFrame(ID=Int[], Redshift=Float64[],Source=String[], redchisq=Float64[], NPOINTS=Float64[],
                     SNR=Float64[], L3000=Float64[], L5100=Float64[], Html_serial=String[])
     allowmissing!(out, [:L3000, :L5100])
     ncol_initial = ncol(out)
@@ -72,29 +78,34 @@ function read_results(output_path, catalog)
         if isfile(filename)
             @info "Reading $filename ..."
             bestfit, fsumm = GModelFit.deserialize(filename)
-            aux = JSON.Parser.parsefile("$(output_path)/JSON/$(catalog[i, :object_id])_aux.json")
-            for k in ["L3000", "L5100"]
-                isnothing(aux[k])  &&  (aux[k] = missing)
-            end
+            aux = JSON.parsefile("$(output_path)/JSON/$(catalog[i, :object_id])_aux.json", allownan=true)
             push!(out, [catalog[i, :object_id], catalog[i, :Z], catalog[i, :CAT], fsumm.fitstat, fsumm.ndata,
                         aux["SNR"], aux["L3000"], aux["L5100"], "", fill(missing, ncol(out)-ncol_initial)...])
             out[end, :Html_serial] = "$(output_path)/HTML/$(catalog[i, :object_id]).html"
             for (cname, comp) in bestfit
-                 for (pname, par) in comp
-                     colname = Symbol(cname, :_, pname)
-                     if !(string(colname) in names(out))
-                         out[!,        colname        ] = missings(Float64, nrow(out))
-                         out[!, Symbol(colname, :_unc)] = missings(Float64, nrow(out))
-                     end
+                (cname in [:QSOcont, :Galaxy, :Ironuv, :Ironoptbr, :Ironoptna,
+                           :Ha_br, :Ha_na, :Hb_br, :Hb_na,
+                           :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
 
-                     if isnothing(par.patch)
-                         out[end,        colname        ] = par.val
-                         out[end, Symbol(colname, :_unc)] = par.unc
-                     else
-                         out[end,        colname        ] = par.actual
-                         out[end, Symbol(colname, :_unc)] = NaN
-                     end
-                 end
+                if !(string(cname) * "_reliable" in names(out))
+                    out[!, Symbol(cname, :_reliable)] = missings(Int64, nrow(out))
+                end
+                out[end, Symbol(cname, :_reliable)] = ((string(cname) in aux["reliable"])  ?  1  :  0)
+                for (pname, par) in comp
+                    colname = Symbol(cname, :_, pname)
+                    if !(string(colname) in names(out))
+                        out[!,        colname        ] = missings(Float64, nrow(out))
+                        out[!, Symbol(colname, :_unc)] = missings(Float64, nrow(out))
+                    end
+
+                    if isnothing(par.patch)
+                        out[end,        colname        ] = par.val
+                        out[end, Symbol(colname, :_unc)] = par.unc
+                    else
+                        out[end,        colname        ] = par.actual
+                        out[end, Symbol(colname, :_unc)] = NaN
+                    end
+                end
             end
         end
     end
@@ -127,7 +138,7 @@ add_MBH_Ha_ShenLiu2012!(results)
 
 results.MBH_mean .= NaN
 for i in 1:nrow(results)
-	results[i, :MBH_mean] = mean([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022], results[i, :MBH_Ha_ShenLiu2012]])
+    results[i, :MBH_mean] = mean_handle_NaN([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022], results[i, :MBH_Ha_ShenLiu2012]])
 end
 
 # Calculates Lbol and Eddington ratios
