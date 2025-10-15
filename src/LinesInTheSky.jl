@@ -168,7 +168,7 @@ function lines_dict(recipe::CRecipe{T}) where T <: WP9Type1IR
     add_line!(recipe, out, :AlIII_1858  , QSFit.BroadLine)
     add_line!(recipe, out, :CIII_1909   , QSFit.BroadLine)
     add_line!(recipe, out, :CII_2326    , QSFit.BroadLine)
-    add_line!(recipe, out, :l2420p0     , QSFit.BroadLine)
+    # add_line!(recipe, out, :l2420p0     , QSFit.BroadLine)
     add_line!(recipe, out, :MgII_2798   , QSFit.BroadLine)
     add_line!(recipe, out, :NeV_3345)
     add_line!(recipe, out, :NeV_3426)
