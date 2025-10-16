@@ -74,7 +74,7 @@ function read_results(output_path, catalog)
             out[end, :Html_serial] = "$(output_path)/HTML/$(catalog[i, :id_DESI_DR1]).html"
             for (cname, comp) in bestfit
                 (cname in [:QSOcont, :Galaxy, :Ironuv, :Ironoptbr, :Ironoptna,
-                           :Ha_br, :Ha_na, :Hb_br, :Hb_na,
+                           :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832,
                            :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
 
                 if !(string(cname) * "_reliable" in names(out))
@@ -140,7 +140,7 @@ add_Lbol_eddratio!(results)
 
 
 # Creates Quality cut columns
-results[!, :qcut] = ((results.NPOINTS .> 7000)  .&
+results[!, :qcut] = ((results.NPOINTS .> 6000)  .&
                      (results.SNR .> 3))
 
 
