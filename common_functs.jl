@@ -85,6 +85,16 @@ function add_MBH_Ha_Ricci!(cc)
     cc[i, :MBH_Ha_Ricci] .= 7.072 .+ 0.563 .* log10.(cc.Ha_br_norm[i] .* 1e-2) .+ 2 .* log10.(cc.Ha_br_fwhm[i] ./ 1000.)
 end
 
+function add_MBH_Ha_L5100_Ricci!(cc)
+    cc[!, :MBH_Ha_L5100_Ricci] .= NaN
+    i = findall((.!isnan.(cc.L5100))          .&
+                (cc.QSOcont_reliable .=== 1)  .&
+                (cc.Ha_br_reliable .=== 1))
+    # 6.779 + 0.650*log10(L5100/1e+44 erg/s) + 2*log10(FWHM_Halpha /1000 km/s)
+    cc[i, :MBH_Ha_L5100_Ricci] .= 6.779 .+ 0.65 .* log10.(cc.L5100[i]) .+ 2 .* log10.(cc.Ha_br_fwhm[i] ./ 1000.)
+end
+
+
 function add_MBH_Hb_Ricci!(cc)
     cc[!, :MBH_Hb_Ricci] .= NaN
     i = findall((.!isnan.(cc.L5100))          .&
@@ -111,6 +121,11 @@ function add_MBH_Pab_Ricci!(cc)
     cc[i, :MBH_Pab_Ricci] .= 7.94 .+ 0.872 .* (2 .* log10.(cc.Pab_br_fwhm[i] ./ 1e4) .+ 0.5 .* log10.(cc.Pab_br_norm[i] .* 1e2))
 end
 
+function add_MBH_HeI_Ricci!(cc)
+    cc[!, :MBH_HeI_Ricci] .= NaN
+    i = findall(cc.HeI_10832_br_reliable .=== 1)
+    # Log(M_BH/M_sun) = 7.86 + 2x[log(FWHM/1e+4 km/s)] + 0.5x[log(L_HeI erg/s) – 39.55]
+    cc[i, :MBH_HeI_Ricci] .= 7.86 .+ 2 .* log10.(cc.HeI_10832_br_fwhm[i] ./ 1e4) .+ 0.5 .* (log10.(cc.HeI_10832_br_norm[i]) .+ 42 .- 39.55)
+end
 
-# MBH from HeI (10830 Ang)
-# Log(M_BH/M_sun) = 7.86 + 2x[log(FWHM/1e+4 km/s)] + 0.5x[log(L_HeI erg/s) – 39.55]
+

@@ -84,7 +84,7 @@ function read_results(output_path, catalog)
             out[end, :Html_serial] = "$(output_path)/HTML/$(catalog[i, :object_id]).html"
             for (cname, comp) in bestfit
                 (cname in [:QSOcont, :Galaxy, :Ironuv, :Ironoptbr, :Ironoptna,
-                           :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832,
+                           :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832_br,
                            :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
 
                 if !(string(cname) * "_reliable" in names(out))
@@ -137,8 +137,10 @@ add_MBH_MgII_WuShen2022!(results)
 add_MBH_Ha_ShenLiu2012!(results)
 add_MBH_Ha_Ricci!(results)
 add_MBH_Hb_Ricci!(results)
+add_MBH_Ha_L5100_Ricci!(results)
 add_MBH_MgII_Ricci!(results)
 add_MBH_Pab_Ricci!(results)
+add_MBH_HeI_Ricci!(results)
 
 results.MBH_mean .= NaN
 for i in 1:nrow(results)
