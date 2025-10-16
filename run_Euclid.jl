@@ -34,7 +34,7 @@ function analyze_single_spec(input_path, output_path, row)
         res = resWithHost
     end
 
-    GModelFit.serialize(output_filename, res.bestfit, res.fsumm)
+    GModelFit.serialize(output_filename, res.bestfit, res.fsumm, res.data)
     GModelFitViewer.serialize_html(filename="$(output_path)/HTML/$(row[:object_id]).html", res)
 
     # Write additional info in a JSON file
@@ -135,6 +135,10 @@ results = read_results(output_path, catalog)
 add_MBH_Hb_WuShen2022!(results)
 add_MBH_MgII_WuShen2022!(results)
 add_MBH_Ha_ShenLiu2012!(results)
+add_MBH_Ha_Ricci!(results)
+add_MBH_Hb_Ricci!(results)
+add_MBH_MgII_Ricci!(results)
+add_MBH_Pab_Ricci!(results)
 
 results.MBH_mean .= NaN
 for i in 1:nrow(results)

@@ -24,7 +24,7 @@ function analyze_single_spec(input_path, output_path, row)
     spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,3], resolution= 2857, label=string(row[:id_DESI_DR1]))
     recipe = CRecipe{Type1}(redshift=row[:Z], use_host_template=true, Av=0.0)
     res = analyze(recipe, spec)
-    GModelFit.serialize(output_filename, res.bestfit, res.fsumm)
+    GModelFit.serialize(output_filename, res.bestfit, res.fsumm, res.data)
     GModelFitViewer.serialize_html(filename="$(output_path)/HTML/$(row[:id_DESI_DR1]).html", res)
 
     # Write additional info in a JSON file
@@ -125,6 +125,10 @@ results = read_results(output_path, catalog)
 add_MBH_Hb_WuShen2022!(results)
 add_MBH_MgII_WuShen2022!(results)
 # add_MBH_Ha_ShenLiu2012!(results)
+add_MBH_Ha_Ricci!(results)
+add_MBH_Hb_Ricci!(results)
+add_MBH_MgII_Ricci!(results)
+# add_MBH_Pab_Ricci!(results)
 
 results.MBH_mean .= NaN
 for i in 1:nrow(results)

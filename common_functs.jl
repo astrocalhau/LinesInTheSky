@@ -75,3 +75,42 @@ function write_fits(filename, results)
     write(f, data)
     close(f)
 end
+
+
+
+function add_MBH_Ha_Ricci!(cc)
+    cc[!, :MBH_Ha_Ricci] .= NaN
+    i = findall(cc.Ha_br_reliable .=== 1)
+    # Log Mbh/Msun =7.072 +0.563*log(LHalpha/10^44 erg/s)+2log(FWHM/1000 km/s)
+    cc[i, :MBH_Ha_Ricci] .= 7.072 .+ 0.563 .* log10.(cc.Ha_br_norm[i] .* 1e-2) .+ 2 .* log10.(cc.Ha_br_fwhm[i] ./ 1000.)
+end
+
+function add_MBH_Hb_Ricci!(cc)
+    cc[!, :MBH_Hb_Ricci] .= NaN
+    i = findall((.!isnan.(cc.L5100))          .&
+                (cc.QSOcont_reliable .=== 1)  .&
+                (cc.Hb_br_reliable   .=== 1))
+    # Log Mbh/Msun = 6.721 + 0.650*log(L5100/10^44 erg/s) +2log(FWHM/1000 km/s)
+    cc[i, :MBH_Hb_Ricci] .= 6.721 .+ 0.65 .* log10.(cc.L5100[i]) .+ 2 .* log10.(cc.Hb_br_fwhm[i] ./ 1000.)
+end
+
+function add_MBH_MgII_Ricci!(cc)
+    cc[!, :MBH_MgII_Ricci] .= NaN
+    i = findall((.!isnan.(cc.L3000))               .&
+                (cc.QSOcont_reliable      .=== 1)  .&
+                (cc.MgII_2798_br_reliable .=== 1))
+    # Log Mbh/Msun=6.906 + 0.609*log(L3000/10^44 erg/s) +2log(FWHM/1000 km/s)
+    cc[i, :MBH_MgII_Ricci] .= 6.906 .+ 0.609 .* log10.(cc.L3000[i]) .+ 2 .* log10.(cc.MgII_2798_br_fwhm[i] ./ 1000.)
+end
+
+
+function add_MBH_Pab_Ricci!(cc)
+    cc[!, :MBH_Pab_Ricci] .= NaN
+    i = findall(cc.Pab_br_reliable .=== 1)
+    # log(M_BH/M_sun) = 7.94+0.872(+/- 0.040) x { 2x[log(FWHM/1e+4 km/s)] + 0.5x[log(L_Pa_b/1e+40 erg/s]}
+    cc[i, :MBH_Pab_Ricci] .= 7.94 .+ 0.872 .* (2 .* log10.(cc.Pab_br_fwhm[i] ./ 1e4) .+ 0.5 .* log10.(cc.Pab_br_norm[i] .* 1e2))
+end
+
+
+# MBH from HeI (10830 Ang)
+# Log(M_BH/M_sun) = 7.86 + 2x[log(FWHM/1e+4 km/s)] + 0.5x[log(L_HeI erg/s) – 39.55]
