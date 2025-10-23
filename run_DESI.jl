@@ -1,4 +1,5 @@
-using FITSIO, Statistics, DataFrames, JSON, DataStructures, CSV, Revise, Dierckx
+using Revise
+using Base.Threads, FITSIO, DataFrames, DataStructures, Printf
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
 using LinesInTheSky
 
@@ -24,30 +25,24 @@ function analyze_single_spec(input_path, output_path, row)
     spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,3], resolution= 2857, label=string(row[:id_DESI_DR1]))
     recipe = CRecipe{Type1}(redshift=row[:Z], use_host_template=true, Av=0.0)
     res = analyze(recipe, spec)
-    GModelFit.serialize(output_filename, res.bestfit, res.fsumm, res.data)
+    QSFit.serialize(output_filename, res)
     GModelFitViewer.serialize_html(filename="$(output_path)/HTML/$(row[:id_DESI_DR1]).html", res)
-
-    # Write additional info in a JSON file
-    aux = Dict{Symbol, Any}()
-    aux[:SNR] = median(abs.(values(res.data) ./ uncerts(res.data)))
-    aux[:L3000] = ((res.post[:Quality_flags][:QSOcont] == 0)  ?  cont_lambdaLlambda(res.bestfit, 3000.)  :  NaN)
-    aux[:L5100] = ((res.post[:Quality_flags][:QSOcont] == 0)  ?  cont_lambdaLlambda(res.bestfit, 5100.)  :  NaN)
-    aux[:reliable] = Symbol[]
-    for cname in keys(res.bestfit)
-        if res.post[:Quality_flags][cname] == 0
-            push!(aux[:reliable], cname)
-        end
-    end
-    f = open("$(output_path)/JSON/$(row[:id_DESI_DR1])_aux.json", "w")
-    write(f, JSON.json(aux, allownan=true))
-    close(f)
-
     return res
 end
 
 
 function run_analysis(input_path, output_path, catalog)
-    Threads.@threads for i in 1:nrow(catalog)
+    # bash -c 'echo "`ls results/HTML | wc -w` / `ls input/ | wc -w`" | bc -l'
+    SENTINEL = -1
+    channel = Channel{Int64}(30)
+
+    function consumer(channel::Channel)
+        while true
+            i = take!(channel)
+            if i == SENTINEL
+                put!(channel, SENTINEL) # tell other threads to quit
+                break                   # quit this thread
+            end
         try
             analyze_single_spec(input_path, output_path, catalog[i, :])
         catch err
@@ -57,43 +52,51 @@ function run_analysis(input_path, output_path, catalog)
     end
 end
 
+    tasks = [@spawn consumer(channel) for i in 1:nthreads()]
+    put!.(Ref(channel), 1:nrow(catalog))  # tell threads which row to analyze
+    put!(     channel , SENTINEL)         # tell threads to quit
+    wait.(tasks)                          # wait for threads to terminate
+end
+
 
 function read_results(output_path, catalog)
-    out = DataFrame(ID_DESI=Int[], ID_EUCLID=Int[], Redshift=Float64[], redchisq=Float64[], NPOINTS=Float64[],
-                    SNR=Float64[], L3000=Float64[], L5100=Float64[], Html_serial=String[])
-    allowmissing!(out, [:L3000, :L5100])
-    ncol_initial = ncol(out)
-    for i in 1:nrow(catalog)
+    out = [DataFrame(ID_DESI=Int[], ID_EUCLID=Int[], Redshift=Float64[], redchisq=Float64[], NPOINTS=Float64[],
+                    SNR=Float64[], L3000=Float64[], L5100=Float64[], Html_serial=String[]) for i in 1:(Threads.nthreads(:interactive) .+ Threads.nthreads(:default))]
+    ncol_initial = ncol(out[1])
+    Threads.@threads for i in 1:nrow(catalog)
+        df = out[Threads.threadid()]
         filename = "$(output_path)/JSON/$(catalog[i, :id_DESI_DR1]).json"
         if isfile(filename)
             @info "Reading $filename ..."
-            bestfit, fsumm = GModelFit.deserialize(filename)
-            aux = JSON.parsefile("$(output_path)/JSON/$(catalog[i, :id_DESI_DR1])_aux.json", allownan=true)
-            push!(out, [catalog[i, :id_DESI_DR1], catalog[i, :object_id], catalog[i, :Z], fsumm.fitstat, fsumm.ndata,
-                        aux["SNR"], aux["L3000"], aux["L5100"], "", fill(missing, ncol(out)-ncol_initial)...])
-            out[end, :Html_serial] = "$(output_path)/HTML/$(catalog[i, :id_DESI_DR1]).html"
-            for (cname, comp) in bestfit
+            res = QSFit.deserialize(filename)
+            push!(df, [catalog[i, :id_DESI_DR1], catalog[i, :object_id], catalog[i, :Z], res.fsumm.fitstat, res.fsumm.ndata,
+                        res.post[:Data_stats][:SNR],
+                        res.post[:Continuum_luminosity][:l3000],
+                        res.post[:Continuum_luminosity][:l5100],
+                        "", fill(missing, ncol(df)-ncol_initial)...])
+            df[end, :Html_serial] = "$(output_path)/HTML/$(catalog[i, :id_DESI_DR1]).html"
+            for (cname, comp) in res.bestfit
                 (cname in [:QSOcont, :Galaxy, :Ironuv, :Ironoptbr, :Ironoptna,
                            :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832_br,
                            :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
 
-                if !(string(cname) * "_reliable" in names(out))
-                    out[!, Symbol(cname, :_reliable)] = missings(Int64, nrow(out))
+                if !(string(cname) * "_reliable" in names(df))
+                    df[!, Symbol(cname, :_reliable)] = missings(Int64, nrow(df))
                 end
-                out[end, Symbol(cname, :_reliable)] = ((string(cname) in aux["reliable"])  ?  1  :  0)
+                df[end, Symbol(cname, :_reliable)] = ((string(cname) in keys(res.post[:Issues]))  ?  1  :  0)
                 for (pname, par) in comp
                     colname = Symbol(cname, :_, pname)
-                    if !(string(colname) in names(out))
-                        out[!,        colname        ] = missings(Float64, nrow(out))
-                        out[!, Symbol(colname, :_unc)] = missings(Float64, nrow(out))
+                    if !(string(colname) in names(df))
+                        df[!,        colname        ] = missings(Float64, nrow(df))
+                        df[!, Symbol(colname, :_unc)] = missings(Float64, nrow(df))
                     end
 
                     if isnothing(par.patch)
-                        out[end,        colname        ] = par.val
-                        out[end, Symbol(colname, :_unc)] = par.unc
+                        df[end,        colname        ] = par.val
+                        df[end, Symbol(colname, :_unc)] = par.unc
                     else
-                        out[end,        colname        ] = par.actual
-                        out[end, Symbol(colname, :_unc)] = NaN
+                        df[end,        colname        ] = par.actual
+                        df[end, Symbol(colname, :_unc)] = NaN
                     end
                 end
             end
@@ -101,8 +104,9 @@ function read_results(output_path, catalog)
     end
 
     # Set Html_serial as last column
-    select!(out, [filter(x -> x != "Html_serial", names(out)); "Html_serial"])
-    return out
+    ret = vcat(out..., cols=:union)
+    select!(ret, [filter(x -> x != "Html_serial", names(ret)); "Html_serial"])
+    return ret
 end
 
 
@@ -125,9 +129,9 @@ results = read_results(output_path, catalog)
 add_MBH_Hb_WuShen2022!(results)
 add_MBH_MgII_WuShen2022!(results)
 # add_MBH_Ha_ShenLiu2012!(results)
-add_MBH_Ha_Ricci!(results)
+# add_MBH_Ha_Ricci!(results)
 add_MBH_Hb_Ricci!(results)
-add_MBH_Ha_L5100_Ricci!(results)
+# add_MBH_Ha_L5100_Ricci!(results)
 add_MBH_MgII_Ricci!(results)
 # add_MBH_Pab_Ricci!(results)
 # add_MBH_HeI_Ricci!(results)
