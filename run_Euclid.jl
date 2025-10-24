@@ -5,7 +5,7 @@ using LinesInTheSky
 
 include("common_functs.jl")
 
-function analyze_single_spec(input_path, output_path, row)
+function analyze_single_spec(input_path, output_path, row; clob=false)
     mkpath("$(output_path)/JSON")
     mkpath("$(output_path)/HTML")
 
@@ -15,7 +15,7 @@ function analyze_single_spec(input_path, output_path, row)
     if !isfile(input_filename)
         error("Input file $input_filename do not exists.")
     end
-    if isfile(output_filename)
+    if isfile(output_filename)  &&  !clob
         println("Output file $output_filename already exists. Skipping.")
         return
     end
@@ -36,7 +36,9 @@ function analyze_single_spec(input_path, output_path, row)
     end
 
     QSFit.serialize(output_filename, res)
-    GModelFitViewer.serialize_html(filename="$(output_path)/HTML/$(row[:object_id]).html", res)
+    output_html = replace(output_filename, "JSON" => "HTML", "json" => "html")
+    @info output_html
+    GModelFitViewer.serialize_html(filename=output_html, res)
     return res
 end
 
@@ -53,14 +55,14 @@ function run_analysis(input_path, output_path, catalog)
                 put!(channel, SENTINEL) # tell other threads to quit
                 break                   # quit this thread
             end
-        try
-            analyze_single_spec(input_path, output_path, catalog[i, :])
-        catch err
-            display(err)
-            println("Failed to fit spectrum for $(catalog[i, :object_id]).")
+            try
+                analyze_single_spec(input_path, output_path, catalog[i, :])
+            catch err
+                display(err)
+                println("Failed to fit spectrum for $(catalog[i, :object_id]).")
+            end
         end
     end
-end
 
     tasks = [@spawn consumer(channel) for i in 1:nthreads()]
     put!.(Ref(channel), 1:nrow(catalog))  # tell threads which row to analyze
@@ -111,15 +113,17 @@ function read_results(output_path, catalog)
                 end
             end
 
-            if :Ha_norm in keys(res.post[:Line_associations])
-                if !("assoc_Ha_norm" in names(df))
-                    df[!, :assoc_Ha_norm] = missings(Float64, nrow(df))
-                    df[!, :assoc_Ha_fwhm] = missings(Float64, nrow(df))
-                    df[!, :assoc_Ha_voff] = missings(Float64, nrow(df))
+            for assoc in [:Ha_br_assoc, :Hb_br_assoc]
+                if assoc in keys(res.post)
+                    if !("$(assoc)_norm" in names(df))
+                        df[!, Symbol(assoc, :_norm)] = missings(Float64, nrow(df))
+                        df[!, Symbol(assoc, :_fwhm)] = missings(Float64, nrow(df))
+                        df[!, Symbol(assoc, :_voff)] = missings(Float64, nrow(df))
+                    end
+                    df[end, Symbol(assoc, :_norm)] = res.post[assoc][:norm]
+                    df[end, Symbol(assoc, :_fwhm)] = res.post[assoc][:fwhm]
+                    df[end, Symbol(assoc, :_voff)] = res.post[assoc][:voff]
                 end
-                df[end, :assoc_Ha_norm] = res.post[:Line_associations][:Ha_norm]
-                df[end, :assoc_Ha_fwhm] = res.post[:Line_associations][:Ha_fwhm]
-                df[end, :assoc_Ha_voff] = res.post[:Line_associations][:Ha_voff]
             end
         end
     end
@@ -144,7 +148,6 @@ run_analysis(input_path, output_path, catalog)
 
 # Read results from JSON files
 results = read_results(output_path, catalog)
-
 
 # Calculates Mbh
 add_MBH_Hb_WuShen2022!(results)
