@@ -7,10 +7,9 @@ include("common_functs.jl")
 
 function analyze_single_spec(input_path, output_path, row; clob=false)
     mkpath("$(output_path)/JSON")
-    mkpath("$(output_path)/HTML")
 
     input_filename = "$(input_path)/TXT/$(row[:id_DESI_DR1]).txt"
-    output_filename = "$(output_path)/JSON/$(row[:id_DESI_DR1]).json"
+    output_filename = "$(output_path)/JSON/$(row[:id_DESI_DR1]).json.gz"
 
     if !isfile(input_filename)
         error("Input file $input_filename do not exists.")
@@ -25,16 +24,14 @@ function analyze_single_spec(input_path, output_path, row; clob=false)
     spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,3], resolution= 2857, label=string(row[:id_DESI_DR1]))
     recipe = CRecipe{Type1}(redshift=row[:Z], use_host_template=true, Av=0.0)
     res = analyze(recipe, spec)
-    QSFit.serialize(output_filename, res)
-    output_html = replace(output_filename, "JSON" => "HTML", "json" => "html")
-    @info output_html
-    GModelFitViewer.serialize_html(filename=output_html, res)
+
+    QSFit.serialize(output_filename, res, compress=true)
     return res
 end
 
 
 function run_analysis(input_path, output_path, catalog)
-    # bash -c 'echo "`ls results/HTML | wc -w` / `ls input/ | wc -w`" | bc -l'
+    # bash -c 'echo "`ls results/JSON | wc -w` / `ls input/ | wc -w`" | bc -l'
     SENTINEL = -1
     channel = Channel{Int64}(30)
 
@@ -63,20 +60,19 @@ end
 
 function read_results(output_path, catalog)
     out = [DataFrame(ID_DESI=Int[], ID_EUCLID=Int[], Redshift=Float64[], redchisq=Float64[], NPOINTS=Float64[],
-                    SNR=Float64[], L3000=Float64[], L5100=Float64[], Html_serial=String[]) for i in 1:(Threads.nthreads(:interactive) .+ Threads.nthreads(:default))]
+                    SNR=Float64[], L3000=Float64[], L5100=Float64[]) for i in 1:(Threads.nthreads(:interactive) .+ Threads.nthreads(:default))]
     ncol_initial = ncol(out[1])
     Threads.@threads for i in 1:nrow(catalog)
         df = out[Threads.threadid()]
-        filename = "$(output_path)/JSON/$(catalog[i, :id_DESI_DR1]).json"
+        filename = "$(output_path)/JSON/$(catalog[i, :id_DESI_DR1]).json.gz"
         if isfile(filename)
             @info "Reading $filename ..."
             res = QSFit.deserialize(filename)
             push!(df, [catalog[i, :id_DESI_DR1], catalog[i, :object_id], catalog[i, :Z], res.fsumm.fitstat, res.fsumm.ndata,
-                        res.post[:Data_stats][:SNR],
-                        res.post[:Continuum_luminosity][:l3000],
-                        res.post[:Continuum_luminosity][:l5100],
-                        "", fill(missing, ncol(df)-ncol_initial)...])
-            df[end, :Html_serial] = "$(output_path)/HTML/$(catalog[i, :id_DESI_DR1]).html"
+                       res.post[:Data_stats][:SNR],
+                       res.post[:Continuum_luminosity][:l3000],
+                       res.post[:Continuum_luminosity][:l5100],
+                       fill(missing, ncol(df)-ncol_initial)...])
             for (cname, comp) in res.bestfit
                 (cname in [:QSOcont, :Galaxy, :Ironuv, :Ironoptbr, :Ironoptna,
                            :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832_br,
@@ -117,11 +113,7 @@ function read_results(output_path, catalog)
             end
         end
     end
-
-    # Set Html_serial as last column
-    ret = vcat(out..., cols=:union)
-    select!(ret, [filter(x -> x != "Html_serial", names(ret)); "Html_serial"])
-    return ret
+    return vcat(out..., cols=:union)
 end
 
 
