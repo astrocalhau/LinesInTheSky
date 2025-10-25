@@ -54,7 +54,7 @@ function read_results(output_path, row)
         if !(string(cname) * "_reliable" in names(df))
             df[!, Symbol(cname, :_reliable)] = missings(Int64, nrow(df))
         end
-        df[end, Symbol(cname, :_reliable)] = ((string(cname) in keys(res.post[:Issues]))  ?  0  :  1)
+        df[end, Symbol(cname, :_reliable)] = ((cname in keys(res.post[:Issues]))  ?  0  :  1)
         for (pname, par) in comp
             colname = Symbol(cname, :_, pname)
             if !(string(colname) in names(df))
