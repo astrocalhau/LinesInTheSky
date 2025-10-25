@@ -3,17 +3,15 @@ using Base.Threads, FITSIO, DataFrames, DataStructures, Printf, Statistics, Stat
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
 using LinesInTheSky
 
-include("common_functs.jl")
+include("utils.jl")
 
-function analyze_single_spec(input_path, output_path, row; clob=false)
+function analyze_spec(input_path, output_path, row; clob=false)
     mkpath("$(output_path)/JSON")
 
     input_filename = "$(input_path)/spectra/$(row[:object_id]).txt"
-    output_filename = "$(output_path)/JSON/$(row[:object_id]).json.gz"
+    isfile(input_filename)  ||  error("Input file $input_filename do not exists.")
 
-    if !isfile(input_filename)
-        error("Input file $input_filename do not exists.")
-    end
+    output_filename = "$(output_path)/JSON/$(row[:object_id]).json.gz"
     if isfile(output_filename)  &&  !clob
         println("Output file $output_filename already exists. Skipping.")
         return
@@ -38,68 +36,34 @@ function analyze_single_spec(input_path, output_path, row; clob=false)
     return res
 end
 
+function read_results(output_path, row)
+    filename = "$(output_path)/JSON/$(row.object_id).json.gz"
+    isfile(filename)  ||  error("File filename do not exists.")
 
-function run_analysis(input_path, output_path, catalog)
-    # bash -c 'echo "`ls results/JSON | wc -w` / `ls input/ | wc -w`" | bc -l'
-    SENTINEL = -1
-    channel = Channel{Int64}(30)
+    @info "Reading $filename ..."
+    res = QSFit.deserialize(filename)
+    df =  DataFrame(ID=row.object_id, Redshift=row.Z, Source=row.CAT, redchisq=res.fsumm.fitstat,
+                    NPOINTS=res.fsumm.ndata, SNR=res.post[:Data_stats][:SNR],
+                    L3000=res.post[:Continuum_luminosity][:l3000],
+                    L5100=res.post[:Continuum_luminosity][:l5100])
+    for (cname, comp) in res.bestfit
+        (cname in [:QSOcont, :Galaxy, :Ironuv, :Ironoptbr, :Ironoptna,
+                   :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832_br,
+                   :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
 
-    function consumer(channel::Channel)
-        while true
-            i = take!(channel)
-            if i == SENTINEL
-                put!(channel, SENTINEL) # tell other threads to quit
-                break                   # quit this thread
-            end
-            try
-                analyze_single_spec(input_path, output_path, catalog[i, :])
-            catch err
-                display(err)
-                println("Failed to fit spectrum for $(catalog[i, :object_id]).")
-            end
+        if !(string(cname) * "_reliable" in names(df))
+            df[!, Symbol(cname, :_reliable)] = missings(Int64, nrow(df))
         end
-    end
+        df[end, Symbol(cname, :_reliable)] = ((string(cname) in keys(res.post[:Issues]))  ?  0  :  1)
+        for (pname, par) in comp
+            colname = Symbol(cname, :_, pname)
+            if !(string(colname) in names(df))
+                df[!,        colname        ] = missings(Float64, nrow(df))
+                df[!, Symbol(colname, :_unc)] = missings(Float64, nrow(df))
+            end
 
-    tasks = [@spawn consumer(channel) for i in 1:nthreads()]
-    put!.(Ref(channel), 1:nrow(catalog))  # tell threads which row to analyze
-    put!(     channel , SENTINEL)         # tell threads to quit
-    wait.(tasks)                          # wait for threads to terminate
-end
-
-
-function read_results(output_path, catalog)
-    out = [DataFrame(ID=Int[], Redshift=Float64[], Source=String[], redchisq=Float64[], NPOINTS=Float64[],
-                     SNR=Float64[], L3000=Float64[], L5100=Float64[]) for i in 1:(Threads.nthreads(:interactive) .+ Threads.nthreads(:default))]
-    ncol_initial = ncol(out[1])
-    Threads.@threads for i in 1:nrow(catalog)
-        df = out[Threads.threadid()]
-        filename = "$(output_path)/JSON/$(catalog[i, :object_id]).json.gz"
-        if isfile(filename)
-            @info "Reading $filename ..."
-            res = QSFit.deserialize(filename)
-            push!(df, [catalog[i, :object_id], catalog[i, :Z], catalog[i, :CAT], res.fsumm.fitstat, res.fsumm.ndata,
-                       res.post[:Data_stats][:SNR],
-                       res.post[:Continuum_luminosity][:l3000],
-                       res.post[:Continuum_luminosity][:l5100],
-                       fill(missing, ncol(df)-ncol_initial)...])
-            for (cname, comp) in res.bestfit
-                (cname in [:QSOcont, :Galaxy, :Ironuv, :Ironoptbr, :Ironoptna,
-                           :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832_br,
-                           :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
-
-                if !(string(cname) * "_reliable" in names(df))
-                    df[!, Symbol(cname, :_reliable)] = missings(Int64, nrow(df))
-                end
-                df[end, Symbol(cname, :_reliable)] = ((string(cname) in keys(res.post[:Issues]))  ?  0  :  1)
-                for (pname, par) in comp
-                    colname = Symbol(cname, :_, pname)
-                    if !(string(colname) in names(df))
-                        df[!,        colname        ] = missings(Float64, nrow(df))
-                        df[!, Symbol(colname, :_unc)] = missings(Float64, nrow(df))
-                    end
-
-                    if isnothing(par.patch)
-                        df[end,        colname        ] = par.val
+            if isnothing(par.patch)
+                df[end,        colname        ] = par.val
                         df[end, Symbol(colname, :_unc)] = par.unc
                     else
                         df[end,        colname        ] = par.actual
@@ -120,9 +84,7 @@ function read_results(output_path, catalog)
                     df[end, Symbol(assoc, :_voff)] = res.post[assoc][:voff]
                 end
             end
-        end
-    end
-    return vcat(out..., cols=:union)
+    return df
 end
 
 
@@ -138,9 +100,10 @@ close(f)
 run_analysis(input_path, output_path, catalog)
 
 # Read results from JSON files
-results = read_results(output_path, catalog)
+results = read_all_results(output_path, catalog)
 
 # Calculates Mbh
+include("common_functs.jl")
 add_MBH_Hb_WuShen2022!(results)
 add_MBH_MgII_WuShen2022!(results)
 add_MBH_Ha_ShenLiu2012!(results)

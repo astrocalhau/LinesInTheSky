@@ -56,26 +56,6 @@ function add_Lbol_eddratio!(cc)
 end
 
 
-function write_fits(filename, results)
-    data = OrderedDict{String, Vector}()
-    for cname in names(results)
-        col = results[:, cname]
-        typ = nonmissingtype(eltype(col))
-        if typ <: AbstractFloat
-            data[cname] = replace(col, missing => NaN)
-        elseif typ <: Integer
-            data[cname] = replace(col, missing => -1)
-        elseif typ <: String
-            data[cname] = replace(col, missing => "")
-        else
-            error("Unsupported data type: $(typ)")
-        end
-    end
-    f = FITS(filename, "w")
-    write(f, data)
-    close(f)
-end
-
 
 
 function add_MBH_Ha_Ricci!(cc)
