@@ -87,55 +87,65 @@ function read_results(output_path, row)
     return df
 end
 
-
-input_path  =   "input/input_Euclid"
-output_path = "results_Euclid"
-
-# Read input catalog
-f = FITS("$(input_path)/catalog.fits")
-catalog = DataFrame(f[2])
-close(f)
-
-# Run analysis
-run_analysis(input_path, output_path, catalog)
-
-# Read results from JSON files
-results = read_all_results(output_path, catalog)
-
-# Calculates Mbh
 include("common_functs.jl")
-add_MBH_Hb_WuShen2022!(results)
-add_MBH_MgII_WuShen2022!(results)
-add_MBH_Ha_ShenLiu2012!(results)
-add_MBH_Ha_Ricci!(results)
-add_MBH_Hb_Ricci!(results)
-add_MBH_Ha_L5100_Ricci!(results)
-add_MBH_MgII_Ricci!(results)
-add_MBH_Pab_Ricci!(results)
-add_MBH_HeI_Ricci!(results)
+function calculate_additional_columns!(results)
+    # Calculates Mbh
+    add_MBH_Hb_WuShen2022!(results)
+    add_MBH_MgII_WuShen2022!(results)
+    add_MBH_Ha_ShenLiu2012!(results)
+    add_MBH_Ha_Ricci!(results)
+    add_MBH_Hb_Ricci!(results)
+    add_MBH_Ha_L5100_Ricci!(results)
+    add_MBH_MgII_Ricci!(results)
+    add_MBH_Pab_Ricci!(results)
+    add_MBH_HeI_Ricci!(results)
 
-results.MBH_mean .= NaN
-for i in 1:nrow(results)
-    results[i, :MBH_mean] = mean_handle_NaN([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022], results[i, :MBH_Ha_ShenLiu2012]])
+    results.MBH_mean .= NaN
+    for i in 1:nrow(results)
+        results[i, :MBH_mean] = mean_handle_NaN([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022], results[i, :MBH_Ha_ShenLiu2012]])
+    end
+
+    # Calculates Lbol and Eddington ratios
+    add_Lbol_eddratio!(results)
+
+    # Creates Quality cut columns
+    function snr_min_at_redchisq(x; redchisq=3.5, SNR=3)
+        a = log10.([redchisq, SNR])
+        lx = log10(x)
+        (lx < a[1])  &&  (return 10^a[2])
+        lx -= a[1]
+        return 10^(0.6 * lx + a[2])
+    end
+
+    results[!, :qcut] = ((results.NPOINTS .> 450)                                        .&
+                         (results.SNR .> snr_min_at_redchisq.(results.redchisq))         .&
+                         (results.QSOcont_alpha .> -5) .& (results.QSOcont_alpha .<  5)  .&
+                         (results.QSOcont_norm .> results.QSOcont_norm_unc))
 end
 
-# Calculates Lbol and Eddington ratios
-add_Lbol_eddratio!(results)
 
+function run_Euclid()
+    input_path  = "input/input_Euclid"
+    output_path = "results_Euclid"
 
-# Creates Quality cut columns
-function snr_min_at_redchisq(x; redchisq=3.5, SNR=3)
-    a = log10.([redchisq, SNR])
-    lx = log10(x)
-    (lx < a[1])  &&  (return 10^a[2])
-    lx -= a[1]
-    return 10^(0.6 * lx + a[2])
+    # Read input catalog
+    f = FITS("$(input_path)/catalog.fits")
+    catalog = DataFrame(f[2])
+    close(f)
+
+    # Run analysis
+    run_analysis(input_path, output_path, catalog)
+
+    # Read results from JSON files
+    results = read_all_results(output_path, catalog)
+
+    # Calculate additional columns
+    calculate_additional_columns!(results)
+
+    # Write results in a FITS file
+    write_fits("$(output_path)/QSFIT_RESULTS.fits", results)
+
+    return input_path, output_path, catalog, results
 end
 
-results[!, :qcut] = ((results.NPOINTS .> 450)                                        .&
-                     (results.SNR .> snr_min_at_redchisq.(results.redchisq))         .&
-                     (results.QSOcont_alpha .> -5) .& (results.QSOcont_alpha .<  5)  .&
-                     (results.QSOcont_norm .> results.QSOcont_norm_unc))
-
-# Write results in a FITS file
-write_fits("$(output_path)/QSFIT_RESULTS.fits", results)
+# input_path, output_path, catalog, results = run_Euclid()

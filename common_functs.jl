@@ -107,5 +107,3 @@ function add_MBH_HeI_Ricci!(cc)
     # Log(M_BH/M_sun) = 7.86 + 2x[log(FWHM/1e+4 km/s)] + 0.5x[log(L_HeI erg/s) – 39.55]
     cc[i, :MBH_HeI_Ricci] .= 7.86 .+ 2 .* log10.(cc.HeI_10832_br_fwhm[i] ./ 1e4) .+ 0.5 .* (log10.(cc.HeI_10832_br_norm[i]) .+ 42 .- 39.55)
 end
-
-

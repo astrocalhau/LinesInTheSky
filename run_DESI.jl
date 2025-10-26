@@ -77,46 +77,55 @@ function read_results(output_path, row)
     return df
 end
 
-
-input_path  = "input/input_DESI"
-output_path = "results_DESI"
-
-# Read input catalog
-f = FITS("$(input_path)/Q1_DESI_DR1_QSOAGNVAC_QSO.fits")
-catalog = DataFrame(f[2])
-close(f)
-
-# Run analysis
-run_analysis(input_path, output_path, catalog)
-
-# Read results from JSON files
-results = read_all_results(output_path, catalog)
-
-# Calculates Mbh
 include("common_functs.jl")
-add_MBH_Hb_WuShen2022!(results)
-add_MBH_MgII_WuShen2022!(results)
-# add_MBH_Ha_ShenLiu2012!(results)
-# add_MBH_Ha_Ricci!(results)
-add_MBH_Hb_Ricci!(results)
-# add_MBH_Ha_L5100_Ricci!(results)
-add_MBH_MgII_Ricci!(results)
-# add_MBH_Pab_Ricci!(results)
-# add_MBH_HeI_Ricci!(results)
+function calculate_additional_columns!(results)
+    # Calculates Mbh
+    add_MBH_Hb_WuShen2022!(results)
+    add_MBH_MgII_WuShen2022!(results)
+    # add_MBH_Ha_ShenLiu2012!(results)
+    # add_MBH_Ha_Ricci!(results)
+    add_MBH_Hb_Ricci!(results)
+    # add_MBH_Ha_L5100_Ricci!(results)
+    add_MBH_MgII_Ricci!(results)
+    # add_MBH_Pab_Ricci!(results)
+    # add_MBH_HeI_Ricci!(results)
 
-results.MBH_mean .= NaN
-for i in 1:nrow(results)
-    results[i, :MBH_mean] = mean_handle_NaN([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022]])
+    results.MBH_mean .= NaN
+    for i in 1:nrow(results)
+        results[i, :MBH_mean] = mean_handle_NaN([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022]])
+    end
+
+    # Calculates Lbol and Eddington ratios
+    add_Lbol_eddratio!(results)
+
+    # Creates Quality cut columns
+    results[!, :qcut] = ((results.NPOINTS .> 6000)  .&
+                         (results.SNR .> 3))
 end
 
-# Calculates Lbol and Eddington ratios
-add_Lbol_eddratio!(results)
 
+function run_DESI()
+    input_path  = "input/input_DESI"
+    output_path = "results_DESI"
 
-# Creates Quality cut columns
-results[!, :qcut] = ((results.NPOINTS .> 6000)  .&
-                     (results.SNR .> 3))
+    # Read input catalog
+    f = FITS("$(input_path)/Q1_DESI_DR1_QSOAGNVAC_QSO.fits")
+    catalog = DataFrame(f[2])
+    close(f)
 
+    # Run analysis
+    run_analysis(input_path, output_path, catalog)
 
-# Write results in a FITS file
-write_fits("$(output_path)/QSFIT_RESULTS.fits", results)
+    # Read results from JSON files
+    results = read_all_results(output_path, catalog)
+
+    # Calculate additional columns
+    calculate_additional_columns!(results)
+
+    # Write results in a FITS file
+    write_fits("$(output_path)/QSFIT_RESULTS.fits", results)
+
+    return input_path, output_path, catalog, results
+end
+
+# input_path, output_path, catalog, results = run_DESI()
