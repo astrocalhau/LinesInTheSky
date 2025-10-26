@@ -43,7 +43,7 @@ function read_results(output_path, row)
     @info "Reading $filename ..."
     res = QSFit.deserialize(filename)
     df =  DataFrame(ID=row.object_id, Redshift=row.Z, Source=row.CAT, redchisq=res.fsumm.fitstat,
-                    NPOINTS=res.fsumm.ndata, SNR=res.post[:Data_stats][:SNR],
+                    NPOINTS=res.fsumm.ndata, SNR=res.post[:Data_stats][:SNR], DER_SNR=res.post[:Data_stats][:DER_SNR], nneg=res.post[:Data_stats][:nneg],
                     L3000=res.post[:Continuum_luminosity][:l3000],
                     L5100=res.post[:Continuum_luminosity][:l5100])
     for (cname, comp) in res.bestfit
@@ -109,16 +109,10 @@ function calculate_additional_columns!(results)
     add_Lbol_eddratio!(results)
 
     # Creates Quality cut columns
-    function snr_min_at_redchisq(x; redchisq=3.5, SNR=3)
-        a = log10.([redchisq, SNR])
-        lx = log10(x)
-        (lx < a[1])  &&  (return 10^a[2])
-        lx -= a[1]
-        return 10^(0.6 * lx + a[2])
-    end
-
-    results[!, :qcut] = ((results.NPOINTS .> 450)                                        .&
-                         (results.SNR .> snr_min_at_redchisq.(results.redchisq))         .&
+    results[!, :good] = ((results.NPOINTS .> 450)                                        .&
+                         (results.nneg ./ results.NPOINTS .< 0.1)                        .&
+                         (results.DER_SNR .> 3)                                          .&
+                         (results.redchisq .< 6)                                         .&
                          (results.QSOcont_alpha .> -5) .& (results.QSOcont_alpha .<  5)  .&
                          (results.QSOcont_norm .> results.QSOcont_norm_unc))
 end

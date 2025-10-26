@@ -33,7 +33,7 @@ function read_results(output_path, row)
     @info "Reading $filename ..."
     res = QSFit.deserialize(filename)
     df =  DataFrame(ID_DESI=row.:id_DESI_DR1, ID_EUCLID=row.object_id, Redshift=row.Z, Source=row.CAT, redchisq=res.fsumm.fitstat,
-                    NPOINTS=res.fsumm.ndata, SNR=res.post[:Data_stats][:SNR],
+                    NPOINTS=res.fsumm.ndata, SNR=res.post[:Data_stats][:SNR], DER_SNR=res.post[:Data_stats][:DER_SNR], nneg=res.post[:Data_stats][:nneg],
                     L3000=res.post[:Continuum_luminosity][:l3000],
                     L5100=res.post[:Continuum_luminosity][:l5100])
     for (cname, comp) in res.bestfit
@@ -99,8 +99,9 @@ function calculate_additional_columns!(results)
     add_Lbol_eddratio!(results)
 
     # Creates Quality cut columns
-    results[!, :qcut] = ((results.NPOINTS .> 6000)  .&
-                         (results.SNR .> 3))
+    results[!, :good] = ((results.NPOINTS .> 6000)                   .&
+                         (results.nneg ./ results.NPOINTS .< 0.1)    .&
+                         (results.DER_SNR .> 3))
 end
 
 
