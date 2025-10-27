@@ -102,7 +102,7 @@ function calculate_additional_columns!(results)
 
     results.MBH_mean .= NaN
     for i in 1:nrow(results)
-        results[i, :MBH_mean] = mean_handle_NaN([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022], results[i, :MBH_Ha_ShenLiu2012]])
+        results[i, :MBH_mean] = mean(skip_NaN_missing([results[i, :MBH_Hb_WuShen2022], results[i, :MBH_MgII_WuShen2022], results[i, :MBH_Ha_ShenLiu2012]]))
     end
 
     # Calculates Lbol and Eddington ratios

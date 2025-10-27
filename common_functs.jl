@@ -1,16 +1,9 @@
-function mean_handle_NaN(v)
+function skip_NaN_missing(v)
     i = findall(.!isnan.(v)  .&  .!ismissing.(v))
-    (length(i) == 0)  &&  (return NaN)
-    return mean(v[i])
+    (length(i) == 0)  &&  (return Float64[])
+    return v[i]
 end
 
-function cont_lambdaLlambda(model, wavelength)
-    try
-        return Dierckx.Spline1D(coords(domain(model)), model(:QSOcont), k=1, bc="error")(wavelength) * wavelength * 1e-2
-    catch
-        return NaN
-    end
-end
 
 
 function add_MBH_Hb_WuShen2022!(cc)
@@ -44,7 +37,7 @@ function add_Lbol_eddratio!(cc)
     allowmissing!(cc, :Lbol_mean)
     for i in 1:nrow(cc)
         try
-	        cc[i, :Lbol_mean] = mean_handle_NaN([cc[i, :Lbol_3000], cc[i, :Lbol_5100]])
+	        cc[i, :Lbol_mean] = mean(skip_NaN_missing([cc[i, :Lbol_3000], cc[i, :Lbol_5100]]))
         catch
             cc[i, :Lbol_mean] = missing
         end
