@@ -14,6 +14,12 @@ function Spectrum(::Val{:EUCLID}, file::AbstractString; ndrop=10, resolution=450
     mask = read(f[2], "MASK")
     close(f)
 
+    i = findall(var .> 0)
+    wl   = wl[i]
+    flux = flux[i]
+    var  = var[i]
+    mask = mask[i]
+
     good = convert(Vector{Bool}, ((mask .== 0)  .&
                                   (var .> 0)    .&
                                   (flux .> 0)))
@@ -21,7 +27,6 @@ function Spectrum(::Val{:EUCLID}, file::AbstractString; ndrop=10, resolution=450
         good[1:ndrop] .= false
         good[end-ndrop+1:end] .= false
     end
-    @info typeof(wl) typeof(flux) typeof(var) typeof(good)
 
     out = Spectrum(wl, flux, sqrt.(var);
                    unit_x = u"angstrom",
