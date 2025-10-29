@@ -1,14 +1,39 @@
 using Revise
-using Base.Threads, FITSIO, DataFrames, DataStructures, Printf, Statistics, StatsBase
+using Base.Threads, FITSIO, DataFrames, DataStructures, Printf, Statistics, StatsBase, Unitful
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
 using LinesInTheSky
 
 include("utils.jl")
 
+import QSFit.Spectrum
+function Spectrum(::Val{:EUCLID}, file::AbstractString; ndrop=10, resolution=450., kws...)
+    f = FITS(file)
+    wl   = 1. .* float.(read(f[2], "WAVELENGTH"))
+    flux = 1. .* float.(read(f[2], "SIGNAL"))
+    var  = 1. .* float.(read(f[2], "VAR"))
+    mask = read(f[2], "MASK")
+    close(f)
+
+    good = convert(Vector{Bool}, ((mask .== 0)  .&
+                                  (var .> 0)    .&
+                                  (flux .> 0)))
+    if ndrop > 0
+        good[1:ndrop] .= false
+        good[end-ndrop+1:end] .= false
+    end
+    @info typeof(wl) typeof(flux) typeof(var) typeof(good)
+
+    out = Spectrum(wl, flux, sqrt.(var);
+                   unit_x = u"angstrom",
+                   unit_y = u"erg" / u"s" / u"cm"^2 / u"angstrom",
+                   good=good, resolution=resolution, kws...)
+    return out
+end
+
 function analyze_spec(input_path, output_path, row; clob=false)
     mkpath("$(output_path)/JSON")
 
-    input_filename = "$(input_path)/spectra/$(row[:object_id]).txt"
+    input_filename = "$(input_path)/fits/$(row[:object_id]).fits"
     isfile(input_filename)  ||  error("Input file $input_filename do not exists.")
 
     output_filename = "$(output_path)/JSON/$(row[:object_id]).json.gz"
@@ -19,7 +44,8 @@ function analyze_spec(input_path, output_path, row; clob=false)
 
     println(); println()
     @info "Analyzing file $(input_filename)"
-    spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,5], label=string(row[:object_id]), resolution = 450)
+
+    spec = Spectrum(Val(:EUCLID), input_filename, label=string(row[:object_id]))
     recipe = CRecipe{WP9Type1IR}(redshift=row[:Z], use_host_template=false, Av=0.0, n_nuisance=2)
     resNoHost = analyze(recipe, spec)
 
