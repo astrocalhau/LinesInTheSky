@@ -8,9 +8,10 @@ include("utils.jl")
 import QSFit.Spectrum
 function Spectrum(::Val{:EUCLID}, file::AbstractString; ndrop=10, resolution=450., kws...)
     f = FITS(file)
+    scale = read_header(f[2])["FSCALE"]
     wl   = 1. .* float.(read(f[2], "WAVELENGTH"))
-    flux = 1. .* float.(read(f[2], "SIGNAL"))
-    var  = 1. .* float.(read(f[2], "VAR"))
+    flux = 1. .* float.(read(f[2], "SIGNAL")) .*scale
+    var  = 1. .* float.(read(f[2], "VAR")) .* (scale) .*(scale)
     mask = read(f[2], "MASK")
     close(f)
 
@@ -173,4 +174,4 @@ function run_Euclid()
     return input_path, output_path, catalog, results
 end
 
-# input_path, output_path, catalog, results = run_Euclid()
+input_path, output_path, catalog, results = run_Euclid()
