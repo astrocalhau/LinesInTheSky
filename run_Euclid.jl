@@ -21,7 +21,7 @@ function Spectrum(::Val{:EUCLID}, file::AbstractString; ndrop=10, resolution=450
     var  = var[i]
     mask = mask[i]
 
-    good = convert(Vector{Bool}, ((mask .== 0)  .&
+    good = convert(Vector{Bool}, (((mask .== 0) .| (mask .== 2))  .&
                                   (var .> 0)    .&
                                   (flux .> 0)))
     if ndrop > 0
