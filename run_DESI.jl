@@ -1,6 +1,8 @@
 using Revise
 using Base.Threads, FITSIO, DataFrames, DataStructures, Printf, Statistics, StatsBase
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
+using SkyCoords, DustExtinction
+using LinesInTheSky
 
 include("utils.jl")
 
@@ -18,8 +20,12 @@ function analyze_spec(input_path, output_path, row; clob=false)
 
     println(); println()
     @info "Analyzing file $(input_filename)"
+
+    gal_coords = convert(GalCoords, ICRSCoords(row[:ra] * pi/180., row[:dec] * pi/180))
+    ebv = SFD98Map()(gal_coords.l, gal_coords.b)
+
     spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,3], resolution=2857, label=string(row[:id_DESI_DR1]))
-    recipe = CRecipe{Type1}(redshift=row[:Z], use_host_template=true, Av=0.0)
+    recipe = CRecipe{Type1}(redshift=row[:Z], use_host_template=true, Av=ebv * 3.1)
     res = analyze(recipe, spec)
 
     QSFit.serialize(output_filename, res, compress=true)

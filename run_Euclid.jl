@@ -1,6 +1,7 @@
 using Revise
 using Base.Threads, FITSIO, DataFrames, DataStructures, Printf, Statistics, StatsBase, Unitful
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
+using SkyCoords, DustExtinction
 using LinesInTheSky
 
 include("utils.jl")
@@ -51,8 +52,11 @@ function analyze_spec(input_path, output_path, row; clob=false)
     println(); println()
     @info "Analyzing file $(input_filename)"
 
+    gal_coords = convert(GalCoords, ICRSCoords(row[:ra] * pi/180., row[:dec] * pi/180))
+    ebv = SFD98Map()(gal_coords.l, gal_coords.b)
+
     spec = Spectrum(Val(:EUCLID), input_filename, label=string(row[:object_id]))
-    recipe = CRecipe{WP9Type1IR}(redshift=row[:Z], use_host_template=false, Av=0.0, n_nuisance=2)
+    recipe = CRecipe{WP9Type1IR}(redshift=row[:Z], use_host_template=false, Av=ebv * 3.1, n_nuisance=2)
     resNoHost = analyze(recipe, spec)
 
     recipe.use_host_template = true
@@ -174,4 +178,4 @@ function run_Euclid()
     return input_path, output_path, catalog, results
 end
 
-input_path, output_path, catalog, results = run_Euclid()
+# input_path, output_path, catalog, results = run_Euclid()

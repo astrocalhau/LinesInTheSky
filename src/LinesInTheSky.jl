@@ -13,38 +13,9 @@ using  QSFit.QSORecipes:  getmodel, getdomain, getdata
 
 
 function __init__()
-    ATL.register(Permitted,  "HeIλ10832"  , [(10832.0574, 19.819635, 20.964240),    # He I      |E1|                        1s.2s-1s.2p                        |       3S-3Po        |   1-0   |   19.819635 -   20.964240|
-                                             (10833.2167, 19.819635, 20.964117),    # He I      |E1|                        1s.2s-1s.2p                        |       3S-3Po        |   1-1   |   19.819635 -   20.964117|
-                                             (10833.3064, 19.819635, 20.964108)])   # He I      |E1|                        1s.2s-1s.2p                        |       3S-3Po        |   1-2   |   19.819635 -   20.964108|
-
-    ATL.register(Forbidden,  "[SIII]λ9069",  ( 9071.1   ,  0.037031, 1.403836))     # [S III]   |M1|                       3s2.3p2-3s2.3p2                     |          3P-1D      |   1-2   |     0.037031 -   1.403836|
-    ATL.register(Forbidden,  "[SIII]λ9532",  ( 9533.2   ,  0.103287, 1.403836))     # [S III]   |M1|                       3s2.3p2-3s2.3p2                     |          3P-1D      |   2-2   |     0.103287 -   1.403836|
-
-    ATL.register(Permitted,  "Pa9"        ,  ( 9231.547 , 12.087510, 13.430559))    # H I       |E1|                           3*-9*                           |         3-9         |   *-*   |   12.087510 -   13.430559|
-    ATL.register(Permitted,  "Pa8"        ,  ( 9548.590 , 12.087510, 13.385966))    # H I       |E1|                           3*-8*                           |         3-8         |   *-*   |   12.087510 -   13.385966|
-    ATL.register(Permitted,  "Paδ"        ,  (10052.128 , 12.087510, 13.320923))    # H I       |E1|                           3*-7*                           |         3-7         |   *-*   |   12.087510 -   13.320923|
-    ATL.register(Permitted,  "Paγ"        ,  (10941.091 , 12.087510, 13.220709))    # H I       |E1|                           3*-6*                           |         3-6         |   *-*   |   12.087510 -   13.220709|
-    ATL.register(Permitted,  "Paβ"        ,  (12821.59  , 12.087510, 13.054507))    # H I       |E1|                           3*-5*                           |         3-5         |   *-*   |   12.087510 -   13.054507|
-    ATL.register(Permitted,  "Paα"        ,  (18756.13  , 12.087510, 12.748544))    # H I       |E1|                           3*-4*                           |         3-4         |   *-*   |   12.087510 -   12.748544|
-    ATL.register(Permitted,  "OIλ8448"    , [(8448.568  ,  9.521367, 10.988885),    # O I		|E1|	2s2.2p3.(4So).3s-2s2.2p3.(4So).3p	|	3So-3P	|	1-0	|	9.521367 - 10.988885	|
-	                                         (8448.680  ,  9.521367, 10.988866),    # O I		|E1|	2s2.2p3.(4So).3s-2s2.2p3.(4So).3p	|	3So-3P	|	1-2	|	9.521367 - 10.988866	|
-	                                         (8449.079  ,  9.521367, 10.988796)])   # O I		|E1|	2s2.2p3.(4So).3s-2s2.2p3.(4So).3p	|	3So-3P	|	1-1	|	9.521367 - 10.988796	|
-
-    ATL.register(Permitted,  "OIλ11289"   , [(11289.407 , 10.988796, 12.087032),    # O I		|E1|	2s2.2p3.(4So).3p-2s2.2p3.(4So).3d	|	3P-3Do	|	1-2	|	10.988796 - 12.087032	|
-	                                         (11289.496 , 10.988796, 12.087023),    # O I		|E1|	2s2.2p3.(4So).3p-2s2.2p3.(4So).3d	|	3P-3Do	|	1-1	|	10.988796 - 12.087023	|
-	                                         (11290.005 , 10.988866, 12.087043),    # O I		|E1|	2s2.2p3.(4So).3p-2s2.2p3.(4So).3d	|	3P-3Do	|	2-3	|	10.988866 - 12.087043	|
-	                                         (11290.120 , 10.988866, 12.087032),    # O I		|E1|	2s2.2p3.(4So).3p-2s2.2p3.(4So).3d	|	3P-3Do	|	2-2	|	10.988866 - 12.087032	|
-	                                         (11290.209 , 10.988866, 12.087023),    # O I		|E1|	2s2.2p3.(4So).3p-2s2.2p3.(4So).3d	|	3P-3Do	|	2-1	|	10.988866 - 12.087023	|
-	                                         (11290.409 , 10.988885, 12.087023)])   # O I		|E1|	2s2.2p3.(4So).3p-2s2.2p3.(4So).3d	|	3P-3Do	|	0-1	|	10.988885 - 12.087023	|
-    ATL.register(Permitted, "OIλ13168"    , [(13167.490 , 10.988796, 11.930390),    # O I        E1              2s2.2p3.(4So).3p-2s2.2p3.(4So).4s                      3P-3So           1-1       10.988796 -   11.930390
-                                             (13168.459 , 10.988866, 11.930390),    # O I        E1              2s2.2p3.(4So).3p-2s2.2p3.(4So).4s                      3P-3So           2-1       10.988866 -   11.930390
-                                             (13168.731 , 10.988885, 11.930390)])   # O I        E1              2s2.2p3.(4So).3p-2s2.2p3.(4So).4s                      3P-3So           0-1       10.988885 -   11.930390
-
-    ATL.register(Permitted, "CaIIλ8500"   ,  ( 8500.36  ,  13650.19,25414.40))      # Ca II   |   E1          |         3p6.(1S).3d-3p6.(1S).4p      |        2D-2Po  |    3/2-3/2    |  13650.19 -    25414.40   |
-    ATL.register(Permitted, "CaIIλ8544"   ,  ( 8544.44  ,  13710.88,25414.40))      # Ca II   |   E1          |         3p6.(1S).3d-3p6.(1S).4p      |        2D-2Po  |    5/2-3/2    |  13710.88 -    25414.40   |
-    ATL.register(Permitted, "CaIIλ8664"   ,  ( 8664.52  ,  13650.19,25191.51))      # Ca II   |   E1          |         3p6.(1S).3d-3p6.(1S).4p      |        2D-2Po  |    3/2-1/2    |  13650.19 -    25191.51   |
-
+#=
     ATL.register(Permitted, "HIλ9231"     ,  ( 9231.547 ,  97492.31,108324.73))     # H I     |   E1          |                  3*-9*               |        3-9     |       *-*     |   97492.31 -   108324.73  | + Broad component
+
     ATL.register(Permitted, "HIλ10052"    ,  (10052.128 ,  97492.31,107440.45))     # H I   |   E1          |                  3*-7*               |        3-7     |       *-*     |   97492.31 -   107440.45  | + Broad component
     ATL.register(Permitted, "HIλ10941"    ,  (10941.091 ,  97492.31,106632.17))     # H I   |   E1          |                  3*-6*               |        3-6     |       *-*     |   97492.31 -   106632.17  | + Broad component
     ATL.register(Permitted, "HIλ12821"    ,  (12821.59  ,  97492.31,105291.66))     #  H I   |   E1          |                  3*-5*               |        3-5     |       *-*     |   97492.31 -   105291.66  | + Broad component
@@ -83,7 +54,7 @@ function __init__()
     ATL.register(Forbidden, "SiVIλ19650"  ,  (19650.0   , 0.000000,0.631080))       #         [Si VI]  |   M1           |            2s2.2p5-2s2.2p5      |                  2Po-2Po      |   3/2-1/2   |   0.000000 -    0.631080   |
     ATL.register(Permitted, "CIVλ1550", (1550.777, 0.00000, 7.994975)) #            |           C IV   |   E1           |                2S-2Po         1/2-1/2      0.000000 -    7.994975      |
 
-#=
+
     #Iron lines and multiplets. Need to figure out how to implement them into the iron routines of Giorgio, so they show up on the iron plots.
     ATL.register(Forbidden, "FeIIλ9229"   ,  ( 9229.149 , 0.351861,1.695260))       #      [Fe II]     E2                           3d7-3d7                                  a4F-a4P         5/2-3/2      0.351861 -    1.695260
     ATL.register(Forbidden, "FeIIλ12570"  , [(12570.238 , 0.000000,0.986332),       #      [Fe II]     M1                   3d6.(5D).4s-3d6.(5D).4s                          a6D-a4D         9/2-7/2      0.000000 -    0.986332
@@ -190,61 +161,20 @@ function lines_dict(recipe::CRecipe{T}) where T <: WP9Type1IR
     add_line!(recipe, out, :SII_6716)
     add_line!(recipe, out, :SII_6731)
     
-    add_line!(recipe, out, :Paa         , QSFit.BroadLine)
-    add_line!(recipe, out, :Pab         , QSFit.BroadLine)
-    add_line!(recipe, out, :Pag         , QSFit.BroadLine)
-    add_line!(recipe, out, :Pad         , QSFit.BroadLine)
     add_line!(recipe, out, :OI_8448     , QSFit.BroadLine)
     add_line!(recipe, out, :SIII_9532)
     add_line!(recipe, out, :HeI_10832   , QSFit.BroadLine)
-    # add_line!(recipe, out, :SIII_9069)
-    # add_line!(recipe, out, :OI_11289, NarrowLine, BroadLine)
-    # add_line!(recipe, out, :OI_13168, NarrowLine)
-    # add_line!(recipe, out, :CaII_8500, NarrowLine)
-    # add_line!(recipe, out, :CaII_8544, NarrowLine)
-    # add_line!(recipe, out, :CaII_8664, NarrowLine)
-    # add_line!(recipe, out, :HI_9231, NarrowLine, BroadLine)
-    # add_line!(recipe, out, :HI_10052, NarrowLine, BroadLine)
-    # add_line!(recipe, out, :HI_10941, NarrowLine, BroadLine)
-    # add_line!(recipe, out, :HI_12821, NarrowLine, BroadLine)
-    # add_line!(recipe, out, :HI_18756, NarrowLine, BroadLine)
-    # add_line!(recipe, out, :HI_19450, NarrowLine, BroadLine)
-    # add_line!(recipe, out, :SVIII_9913, NarrowLine)
-    # add_line!(recipe, out, :SIX_12523, NarrowLine)
-    # add_line!(recipe, out, :CI_9826, NarrowLine)
-    # add_line!(recipe, out, :CI_9852, NarrowLine)
-    # add_line!(recipe, out, :HeII_10126, NarrowLine, BroadLine)
-    # add_line!(recipe, out, :HeII_11629, NarrowLine)
-    # add_line!(recipe, out, :SII_10289, NarrowLine)
-    # add_line!(recipe, out, :SII_10323, NarrowLine)
-    # add_line!(recipe, out, :NI_10400, NarrowLine)
-    # add_line!(recipe, out, :NI_10410, NarrowLine)
-    # add_line!(recipe, out, :PII_11471, NarrowLine)
-    # add_line!(recipe, out, :PII_11886, NarrowLine)
-    # add_line!(recipe, out, :SiX_14304, NarrowLine)
-    # add_line!(recipe, out, :SiVI_19650, NarrowLine)
-    
-    #haskey(out, :NII_6549)  &&  delete!(out, :NII_6549)
-    #haskey(out, :NII_6583)  &&  delete!(out, :NII_6583)
+    add_line!(recipe, out, :Pad         , QSFit.BroadLine)
+    add_line!(recipe, out, :Pag         , QSFit.BroadLine)
+    add_line!(recipe, out, :Pab         , QSFit.BroadLine)
+    add_line!(recipe, out, :Paa         , QSFit.BroadLine)
+
     #haskey(out, :OIII_5007_bw)  &&  delete!(out, :OIII_5007_bw)
     #delete!(out, :Ha_na)
     #delete!(out, :Ha_bb)
     #delete!(out, :Hb_na)
     #delete!(out, :MgII_2798_na)
-    
-    #add_line!(recipe, out, :FeII_9229, NarrowLine)
-    #add_line!(recipe, out, :FeII_12570, NarrowLine)
-    #add_line!(recipe, out, :FeII_12791, NarrowLine)
-    #add_line!(recipe, out, :FeII_13209, NarrowLine)
-    #add_line!(recipe, out, :FeII_15338, NarrowLine)
-    #add_line!(recipe, out, :FeII_16439, NarrowLine)
-    #add_line!(recipe, out, :FeII_16773, NarrowLine)
-    #add_line!(recipe, out, :FeII_8929, NarrowLine)
-    #add_line!(recipe, out, :FeII_9125, NarrowLine)
-    #add_line!(recipe, out, :FeII_9134, NarrowLine)
-    #add_line!(recipe, out, :FeII_9178, NarrowLine)
-    #add_line!(recipe, out, :FeII_9180, NarrowLine)
-    #add_line!(recipe, out, :FeII_9199, NarrowLine)
+
     return out
 end
 
