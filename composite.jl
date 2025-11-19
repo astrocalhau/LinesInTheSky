@@ -83,68 +83,72 @@ struct Composite
                          :comp_flux => Float64[],
                          :comp_redshift => Float64[])
 
-        for step in [:resampling, :scaling]
-            # Loop through spectra
-            @showprogress for i in 1:length(specs)
-                spec = specs[i]
+        # Loop through spectra
+        @showprogress for i in 1:length(specs)
+            spec = specs[i]
 
-                # Identify range of current spectrum
-                @assert issorted(spec.x)
-                xr = extrema(spec.x)
+            # Identify range of current spectrum
+            @assert issorted(spec.x)
+            xr = extrema(spec.x)
+            if !isnothing(refwl)
+                (xr[1] < refwl < xr[2])  ||  continue
+            end
+            j = findall(xr[1] .< domain .< xr[2])
+            @assert length(j) > 0
+
+            # Resample spectrum
+            Y = usemodel  ?  spec.m  :  spec.y
+            resampledY = Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(domain[j])
+
+            # Scale spectrum
+            if renorm
                 if !isnothing(refwl)
-                    (xr[1] < refwl < xr[2])  ||  continue
-                end
-                j = findall(xr[1] .< domain .< xr[2])
-                @assert length(j) > 0
-
-                # Resample spectrum
-                Y = usemodel  ?  spec.m  :  spec.y
-
-                if step == :resampling
-                    resampled[i, j] = Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(domain[j])
-                end
-
-                if step == :scaling
-                    resampledY = resampled[i, j]
-                    # Scale spectrum
-                    if renorm
-                        if !isnothing(refwl)
-                            scaledY = resampledY ./ Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(refwl)
-                        else
-                            if i == 1
-                                scale = 1.0
-                            else
-                                tmp, _, _ = collapse(scaled, j)
-                                scale = mean(tmp[findall(.!isnan.(tmp))])
-                            end
-
-                            scaledY = scale .* resampledY ./ mean(Y)
-                        end
+                    scaledY = resampledY ./ Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(refwl)
+                else
+                    if i == 1
+                        scale = 1.0
                     else
-                        scaledY = resampledY
+                        tmp, _, _ = collapse(scaled, j)
+                        scale = mean(tmp[findall(.!isnan.(tmp))])
                     end
 
-                    # Store resampled and scaled spectrum
-                    scaled[i, j] .= scaledY
-
-                    if plot
-                        append!(plot_data[:redshift], fill(spec.z, length(spec.x)))
-                        append!(plot_data[:orig_domain], spec.x)
-                        append!(plot_data[:orig_flux], Y)
-                        append!(plot_data[:comp_domain], domain[j])
-                        append!(plot_data[:comp_flux], scaledY)
-                        append!(plot_data[:comp_redshift], fill(spec.z, length(j)))
-                        # @gp :aa "set autoscale fix" xlog=true ylog=true domain[j] scaledY "w p" spec.x Y "w p"
-                        # readline()
-                    end
+                    scaledY = scale .* resampledY ./ mean(Y)
                 end
+            else
+                scaledY = resampledY
+            end
+
+            # Store resampled and scaled spectrum
+            scaled[i, j] .= scaledY
+
+            if plot
+                append!(plot_data[:redshift], fill(spec.z, length(spec.x)))
+                append!(plot_data[:orig_domain], spec.x)
+                append!(plot_data[:orig_flux], usemodel  ?  spec.m  :  spec.y)
+                append!(plot_data[:comp_domain], domain[j])
+                append!(plot_data[:comp_flux], scaledY)
+                append!(plot_data[:comp_redshift], fill(spec.z, length(j)))
+                # @gp :aa "set autoscale fix" xlog=true ylog=true domain[j] scaledY "w p" spec.x Y "w p"
+                # readline()
+            end
+        end
+
+        if fit
+            mzer = cmpfit()
+            mzer.config.ftol = 1.e-4
+            bestfit, stats = GModelFit.fit(Model(:main => MyComposite(scaled)),
+                                           Measures(fill(0., size(scaled)[2]), 1.),
+                                           mzer)
+            display(bestfit)
+            for i in 1:length(specs)
+                scaled[i, :] .*= getproperty(bestfit[:main], Symbol(:p, i)).val
             end
         end
 
         composite          , scatter, nn = collapse(scaled)
         geom_composite, geom_scatter, _  = collapse(log10.(scaled))
 
-        scale = mean(composite)
+        scale = mean(composite[findall(.!isnan.(composite))])
         plot_data[:comp_flux] ./= scale
         composite             ./= scale
         scatter               ./= scale
