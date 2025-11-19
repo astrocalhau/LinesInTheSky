@@ -3,14 +3,40 @@ using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
 
 Gnuplot.options.term = "qt size 1600,900 enhanced font 'Latin Modern Roman, 13' lw 1.5"
 
-struct SingleSpec
-    x::Vector{Float64}
-    y::Vector{Float64}
-    m::Vector{Float64}
-    z::Float64
+# ====================================================================
+using DataStructures, GModelFit, CMPFit
+
+struct CompositeVariance <: GModelFit.AbstractComponent
+    m::Matrix{Float64}
+    tmp::Matrix{Float64}
+    c::Vector{Float64}
+    p::OrderedDict{Symbol, GModelFit.Parameter}
+
+    function CompositeVariance(m::Matrix{Float64})
+        p = OrderedDict{Symbol, GModelFit.Parameter}()
+        for i in 1:size(m)[1]
+            p[Symbol(:p, i)] = GModelFit.Parameter(1)
+        end
+        new(m, deepcopy(m), fill(NaN, size(m)[2]), p)
+    end
+end
+
+import GModelFit.evaluate!
+function evaluate!(c::CompositeVariance, domain::AbstractDomain{1}, output,
+                   params...)
+    tmp = Matrix{typeof(params[1])}(undef, size(c.m))
+    for i in 1:length(params)
+        tmp[i, :] .= c.m[i, :] .* params[i]
+    end
+    composite, scatter, _ = collapse(tmp)
+    scale = mean(composite[findall(.!isnan.(composite))])
+    #c.c .= composite ./ scale
+    scatter[findall(isnan.(scatter))] .= params[1] * 0.
+    output .= scatter ./ scale
 end
 
 
+# ====================================================================
 collapse(m; kws...) = collapse(m, 1:size(m)[2]; kws...)
 function collapse(m, j; robust=false)
     avg = fill(NaN .* m[1], length(j))
@@ -33,6 +59,15 @@ function collapse(m, j; robust=false)
     end
     return avg, sig, nn
 end
+
+
+struct SingleSpec
+    x::Vector{Float64}
+    y::Vector{Float64}
+    m::Vector{Float64}
+    z::Float64
+end
+
 
 struct Composite
     domain::Vector{Float64}
@@ -134,9 +169,9 @@ struct Composite
         end
 
         if fit
-            mzer = cmpfit()
-            mzer.config.ftol = 1.e-4
-            bestfit, stats = GModelFit.fit(Model(:main => MyComposite(scaled)),
+            mzer = GModelFit.cmpfit()
+            mzer.config.ftol = 1.e-2
+            bestfit, stats = GModelFit.fit(Model(:main => CompositeVariance(scaled)),
                                            Measures(fill(0., size(scaled)[2]), 1.),
                                            mzer)
             display(bestfit)
@@ -332,42 +367,3 @@ recipe.solver.config.stepfactor = 200
 
 res = analyze(recipe, spec)
 viewer(res)
-
-
-
-using DataStructures,  GModelFit, CMPFit
-
-struct MyComposite <: GModelFit.AbstractComponent
-    m::Matrix{Float64}
-    tmp::Matrix{Float64}
-    c::Vector{Float64}
-    p::OrderedDict{Symbol, GModelFit.Parameter}
-
-    function MyComposite(m::Matrix{Float64})
-        p = OrderedDict{Symbol, GModelFit.Parameter}()
-        for i in 1:size(m)[1]
-            p[Symbol(:p, i)] = GModelFit.Parameter(1)
-        end
-        new(m, deepcopy(m), fill(NaN, size(m)[2]), p)
-    end
-end
-
-import GModelFit.evaluate!
-function evaluate!(c::MyComposite, domain::AbstractDomain{1}, output,
-                   params...)
-    tmp = Matrix{typeof(params[1])}(undef, size(c.m))
-    for i in 1:length(params)
-        tmp[i, :] .= c.m[i, :] .* params[i]
-    end
-    composite, scatter, _ = collapse(tmp)
-    scale = mean(composite[findall(.!isnan.(composite))])
-    #c.c .= composite ./ scale
-    scatter[findall(isnan.(scatter))] .= params[1] * 0.
-    output .= scatter ./ scale
-end
-
-data = Measures(fill(0., size(nn.matrix)[2]), 1.)
-model = Model(:main => MyComposite(nn.matrix))
-mzer = cmpfit()
-mzer.config.ftol = 1.e-1
-bestfit, stats = GModelFit.fit(model, data, mzer)
