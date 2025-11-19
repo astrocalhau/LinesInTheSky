@@ -1,7 +1,7 @@
-using Revise, FITSIO, DataFrames, Gnuplot, Dierckx, ProgressMeter, Statistics, StatsBase, Serialization
+using Revise, FITSIO, DataFrames, Gnuplot, Dierckx, ProgressMeter, Statistics, StatsBase, Serialization, CSV
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
 
-Gnuplot.options.term = "qt size 1800,1300 enhanced font 'Latin Modern Roman, 13' lw 1.5"
+Gnuplot.options.term = "qt size 1600,900 enhanced font 'Latin Modern Roman, 13' lw 1.5"
 
 struct SingleSpec
     x::Vector{Float64}
@@ -13,8 +13,8 @@ end
 
 collapse(m; kws...) = collapse(m, 1:size(m)[2]; kws...)
 function collapse(m, j; robust=false)
-    avg = fill(NaN, length(j))
-    sig = fill(NaN, length(j))
+    avg = fill(NaN .* m[1], length(j))
+    sig = fill(NaN .* m[1], length(j))
     nn  = fill(0 , length(j))
     c = 1
     for j in j
@@ -36,6 +36,7 @@ end
 
 struct Composite
     domain::Vector{Float64}
+    matrix::Matrix{Float64}
     composite::Vector{Float64}
     scatter::Vector{Float64}
     geom_composite::Vector{Float64}
@@ -49,6 +50,7 @@ struct Composite
                        usemodel=false, # Use model rather than data
                        renorm=true,    # Normalize each spectrum before stacking
                        refwl=nothing,  # Use a specific wavelength for normalization
+                       fit=false,      # Estimate individual spectra normalization by requiring the output scatter is minimized
                        plot=false)     # Do plot while accumulating spectra
         if usemodel
             @assert  all([all(s.m .> 0) for s in specs])
@@ -140,16 +142,16 @@ struct Composite
         geom_composite        .-= log10(scale)  # no need to apply offset on geom_scatter here
 
         if plot
-            @gp "set grid" xlog=true ylog=true :-
+            @gp    :Composite "set grid" xlog=true ylog=true :-
             color = v2argb(:roma, plot_data[:redshift], alpha=0.8, range=[extrema(plot_data[:redshift])...])
-            @gp :- plot_data[:orig_domain] plot_data[:orig_flux] color "w d t 'Data' lc rgb var" :-
-            color = v2argb(:roma, plot_data[:comp_redshift], alpha=0.8, range=[extrema(plot_data[:comp_redshift])...])
-            @gp :- plot_data[:comp_domain] plot_data[:comp_flux] color "w d t 'Resampled and scaled' lc rgb var" :-
-            @gp :- domain composite            "w l t 'Arith. composite' lc rgb 'black' lw 3" :-
-            @gp :- domain 10 .^ geom_composite "w l t 'Geom. composite' lc rgb 'black' dt 2 lw 3" :-
-            @gp :- "set autoscale fix"
+            @gp :- :Composite plot_data[:orig_domain] plot_data[:orig_flux] color "w d t 'Data' lc rgb var" :-
+            color =  v2argb(:roma, plot_data[:comp_redshift], alpha=0.8, range=[extrema(plot_data[:comp_redshift])...])
+            @gp :- :Composite plot_data[:comp_domain] plot_data[:comp_flux] color "w d t 'Resampled and scaled' lc rgb var" :-
+            @gp :- :Composite domain composite            "w l t 'Arith. composite' lc rgb 'black' lw 3" :-
+            @gp :- :Composite domain 10 .^ geom_composite "w l t 'Geom. composite' lc rgb 'black' dt 2 lw 3" :-
+            @gp :- :Composite "set autoscale fix"
         end
-        return new(domain, composite, scatter, geom_composite, geom_scatter, nn)
+        return new(domain, matrix, composite, scatter, geom_composite, geom_scatter, nn)
     end
 end
 
@@ -240,9 +242,13 @@ else
 end
 
 
-
 yy = CSV.read("/home/gcalderone/tmp/Yuming/q1_qsocomp_spec_constant_r500_20251114.csv", DataFrame)
 bb = CSV.read("/home/gcalderone/tmp/Yuming/sdss_all_mean_hostcorr.dat", DataFrame);
+f = FITS("/home/gcalderone/tmp/Yuming/Salvatore_composite_median_flux_normalization.fits")
+ss = DataFrame(f[2])
+close(f)
+ss = ss[findall(isfinite.(ss.specMean)), :]
+
 refwl = 5600.
 @gp    :cmp "set grid" xlog=true ylog=true :-
 @gp :- :cmp  cc.domain     cc.domain    .*  cc.composite           ./ Dierckx.Spline1D( cc.domain    ,  cc.composite          , k=1, bc="error")(refwl) ./ refwl "w l t 'arith'"
@@ -251,7 +257,8 @@ refwl = 5600.
 @gp :- :cmp rcc.domain    rcc.domain    .* 10 .^rcc.geom_composite ./ Dierckx.Spline1D(rcc.domain    , 10 .^rcc.geom_composite, k=1, bc="error")(refwl) ./ refwl "w l t 'geom rev'"
 @gp :- :cmp yy.wavelength yy.wavelength .* yy.mean_flux            ./ Dierckx.Spline1D(yy.wavelength , yy.mean_flux           , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming'"
 @gp :- :cmp yy.wavelength yy.wavelength .* yy.geo_flux             ./ Dierckx.Spline1D(yy.wavelength , yy.geo_flux            , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (geom)'"
-@gp :- :cmp bb[:, 1]           bb[:, 1] .* bb[:, 2]                ./ Dierckx.Spline1D(     bb[:, 1] , bb[:, 2]               , k=1, bc="error")(refwl) ./ refwl "w l t 'Beta'"
+@gp :- :cmp ss.wavelength                  ss.specMean             ./ Dierckx.Spline1D(ss.wavelength , ss.specMean            , k=1, bc="error")(refwl)          "w l t 'Salvatore'"
+@gp :- :cmp bb[:, 1]                       bb[:, 2]                ./ Dierckx.Spline1D(     bb[:, 1] , bb[:, 2]               , k=1, bc="error")(refwl)          "w l t 'Beta'"
 
 
 plot(specs, cc)
@@ -308,3 +315,42 @@ recipe.solver.config.stepfactor = 200
 
 res = analyze(recipe, spec)
 viewer(res)
+
+
+
+using DataStructures,  GModelFit, CMPFit
+
+struct MyComposite <: GModelFit.AbstractComponent
+    m::Matrix{Float64}
+    tmp::Matrix{Float64}
+    c::Vector{Float64}
+    p::OrderedDict{Symbol, GModelFit.Parameter}
+
+    function MyComposite(m::Matrix{Float64})
+        p = OrderedDict{Symbol, GModelFit.Parameter}()
+        for i in 1:size(m)[1]
+            p[Symbol(:p, i)] = GModelFit.Parameter(1)
+        end
+        new(m, deepcopy(m), fill(NaN, size(m)[2]), p)
+    end
+end
+
+import GModelFit.evaluate!
+function evaluate!(c::MyComposite, domain::AbstractDomain{1}, output,
+                   params...)
+    tmp = Matrix{typeof(params[1])}(undef, size(c.m))
+    for i in 1:length(params)
+        tmp[i, :] .= c.m[i, :] .* params[i]
+    end
+    composite, scatter, _ = collapse(tmp)
+    scale = mean(composite[findall(.!isnan.(composite))])
+    #c.c .= composite ./ scale
+    scatter[findall(isnan.(scatter))] .= params[1] * 0.
+    output .= scatter ./ scale
+end
+
+data = Measures(fill(0., size(nn.matrix)[2]), 1.)
+model = Model(:main => MyComposite(nn.matrix))
+mzer = cmpfit()
+mzer.config.ftol = 1.e-1
+bestfit, stats = GModelFit.fit(model, data, mzer)
