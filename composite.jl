@@ -168,20 +168,25 @@ struct Composite
             end
         end
 
+        composite          , scatter, nn = collapse(scaled)
+        geom_composite, geom_scatter, _  = collapse(log10.(scaled))
+
         if fit
+            @info "Before:" sum(scatter[findall(.!isnan.(scatter))].^2)
             mzer = GModelFit.cmpfit()
             mzer.config.ftol = 1.e-2
             bestfit, stats = GModelFit.fit(Model(:main => CompositeVariance(scaled)),
                                            Measures(fill(0., size(scaled)[2]), 1.),
                                            mzer)
-            display(bestfit)
             for i in 1:length(specs)
                 scaled[i, :] .*= getproperty(bestfit[:main], Symbol(:p, i)).val
             end
+
+            composite          , scatter, nn = collapse(scaled)
+            geom_composite, geom_scatter, _  = collapse(log10.(scaled))
+            @info "After:" sum(scatter[findall(.!isnan.(scatter))].^2)
         end
 
-        composite          , scatter, nn = collapse(scaled)
-        geom_composite, geom_scatter, _  = collapse(log10.(scaled))
 
         scale = mean(composite[findall(.!isnan.(composite))])
         plot_data[:comp_flux] ./= scale
