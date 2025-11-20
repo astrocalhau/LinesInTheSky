@@ -1,38 +1,34 @@
 using Revise, FITSIO, DataFrames, Gnuplot, Dierckx, ProgressMeter, Statistics, StatsBase, Serialization, CSV
-using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
+using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer, CMPFit
 
 Gnuplot.options.term = "qt size 1600,900 enhanced font 'Latin Modern Roman, 13' lw 1.5"
 
 # ====================================================================
-using DataStructures, GModelFit, CMPFit
-
-struct CompositeVariance <: GModelFit.AbstractComponent
-    m::Matrix{Float64}
-    tmp::Matrix{Float64}
-    c::Vector{Float64}
-    p::OrderedDict{Symbol, GModelFit.Parameter}
-
-    function CompositeVariance(m::Matrix{Float64})
-        p = OrderedDict{Symbol, GModelFit.Parameter}()
-        for i in 1:size(m)[1]
-            p[Symbol(:p, i)] = GModelFit.Parameter(1)
+function composite_variance_func(m::Matrix{Float64})
+    ii = Vector{Vector{Int}}()
+    sm = Vector{Vector{Float64}}()
+    for j in 1:size(m)[2]
+        i = findall(isfinite.(m[:, j]))
+        if length(i) >= 2 # we need at least two spectra to calculate the scatter
+            push!(ii, i)
+            push!(sm, m[i, j])
         end
-        new(m, deepcopy(m), fill(NaN, size(m)[2]), p)
     end
-end
 
-import GModelFit.evaluate!
-function evaluate!(c::CompositeVariance, domain::AbstractDomain{1}, output,
-                   params...)
-    tmp = Matrix{typeof(params[1])}(undef, size(c.m))
-    for i in 1:length(params)
-        tmp[i, :] .= c.m[i, :] .* params[i]
+    prog = ProgressUnknown(desc="Nspec=" * string(size(m)[1]) * ", evaluations:", dt=1.5, showspeed=true, color=:light_black)
+    shared = (sm=sm, ii=ii, output=Vector{Float64}(undef, length(sm)))
+    funct = let prog=prog, shared=shared
+        params::Vector{Float64} -> begin
+            ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
+            # (rand() > 0.99)  &&  println(sum(shared.output .^2))
+            for j in 1:length(shared.sm)
+                v = shared.sm[j] .+ params[shared.ii[j]]
+                shared.output[j] = std(v)
+            end
+            return shared.output
+        end
     end
-    composite, scatter, _ = collapse(tmp)
-    scale = mean(composite[findall(.!isnan.(composite))])
-    #c.c .= composite ./ scale
-    scatter[findall(isnan.(scatter))] .= params[1] * 0.
-    output .= scatter ./ scale
+    return prog, shared, funct
 end
 
 
@@ -139,6 +135,8 @@ struct Composite
             if renorm
                 if !isnothing(refwl)
                     scaledY = resampledY ./ Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(refwl)
+                elseif fit
+                    scaledY = resampledY ./ mean(Y)
                 else
                     if i == 1
                         scale = 1.0
@@ -155,17 +153,6 @@ struct Composite
 
             # Store resampled and scaled spectrum
             scaled[i, j] .= scaledY
-
-            if plot
-                append!(plot_data[:redshift], fill(spec.z, length(spec.x)))
-                append!(plot_data[:orig_domain], spec.x)
-                append!(plot_data[:orig_flux], usemodel  ?  spec.m  :  spec.y)
-                append!(plot_data[:comp_domain], domain[j])
-                append!(plot_data[:comp_flux], scaledY)
-                append!(plot_data[:comp_redshift], fill(spec.z, length(j)))
-                # @gp :aa "set autoscale fix" xlog=true ylog=true domain[j] scaledY "w p" spec.x Y "w p"
-                # readline()
-            end
         end
 
         composite          , scatter, nn = collapse(scaled)
@@ -173,20 +160,42 @@ struct Composite
 
         if fit
             @info "Before:" sum(scatter[findall(.!isnan.(scatter))].^2)
-            mzer = GModelFit.cmpfit()
-            mzer.config.ftol = 1.e-2
-            bestfit, stats = GModelFit.fit(Model(:main => CompositeVariance(scaled)),
-                                           Measures(fill(0., size(scaled)[2]), 1.),
-                                           mzer)
+            @gp :aa hist(scatter)
+            config = CMPFit.Config()
+            config.ftol   = 1.e-2
+            config.xtol   = 1.e-2
+            config.gtol   = 1.e-2
+            config.covtol = 1.e-2
+            prog, shared, funct = composite_variance_func(log10.(scaled))
+            bestfit = CMPFit.cmpfit(funct, fill(0., size(scaled)[1]), config=config)
+            try
+                println("AAA ", bestfit.elapsed, " ", bestfit.orignorm, " ", bestfit.norm)
+            catch
+            end
             for i in 1:length(specs)
-                scaled[i, :] .*= getproperty(bestfit[:main], Symbol(:p, i)).val
+                scaled[i, :] .*= 10^(bestfit.param[i])
             end
 
             composite          , scatter, nn = collapse(scaled)
             geom_composite, geom_scatter, _  = collapse(log10.(scaled))
             @info "After:" sum(scatter[findall(.!isnan.(scatter))].^2)
+            @gp :- :aa hist(scatter)
         end
 
+        if plot
+            for i in 1:length(specs)
+                spec = specs[i]
+                j = findall(.!isnan.(scaled[i, :]))
+                append!(plot_data[:redshift], fill(spec.z, length(spec.x)))
+                append!(plot_data[:orig_domain], spec.x)
+                append!(plot_data[:orig_flux], usemodel  ?  spec.m  :  spec.y)
+                append!(plot_data[:comp_domain], domain[j])
+                append!(plot_data[:comp_flux], scaled[i, j])
+                append!(plot_data[:comp_redshift], fill(spec.z, length(j)))
+                # @gp :aa "set autoscale fix" xlog=true ylog=true domain[j] scaledY "w p" spec.x Y "w p"
+                # readline()
+            end
+        end
 
         scale = mean(composite[findall(.!isnan.(composite))])
         plot_data[:comp_flux] ./= scale
@@ -307,19 +316,18 @@ close(f)
 ss = ss[findall(isfinite.(ss.specMean)), :]
 
 refwl = 5600.
-@gp    :cmp "set grid" xlog=true ylog=true :-
+@gp    :cmp "set grid" xlabel="Wavelength [A] (rest frame)" ylabel="{/Symbol l} L_{/Symbol l} (arb.units)" xlog=true ylog=true :-
 @gp :- :cmp  cc.domain     cc.domain    .*  cc.composite           ./ Dierckx.Spline1D( cc.domain    ,  cc.composite          , k=1, bc="error")(refwl) ./ refwl "w l t 'arith'"
 @gp :- :cmp rcc.domain    rcc.domain    .* rcc.composite           ./ Dierckx.Spline1D(rcc.domain    , rcc.composite          , k=1, bc="error")(refwl) ./ refwl "w l t 'arith rev'"
 @gp :- :cmp  cc.domain     cc.domain    .* 10 .^ cc.geom_composite ./ Dierckx.Spline1D( cc.domain    , 10 .^ cc.geom_composite, k=1, bc="error")(refwl) ./ refwl "w l t 'geom'"
 @gp :- :cmp rcc.domain    rcc.domain    .* 10 .^rcc.geom_composite ./ Dierckx.Spline1D(rcc.domain    , 10 .^rcc.geom_composite, k=1, bc="error")(refwl) ./ refwl "w l t 'geom rev'"
-@gp :- :cmp yy.wavelength yy.wavelength .* yy.mean_flux            ./ Dierckx.Spline1D(yy.wavelength , yy.mean_flux           , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming'"
+@gp :- :cmp yy.wavelength yy.wavelength .* yy.mean_flux            ./ Dierckx.Spline1D(yy.wavelength , yy.mean_flux           , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (arith)'"
 @gp :- :cmp yy.wavelength yy.wavelength .* yy.geo_flux             ./ Dierckx.Spline1D(yy.wavelength , yy.geo_flux            , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (geom)'"
 @gp :- :cmp ss.wavelength                  ss.specMean             ./ Dierckx.Spline1D(ss.wavelength , ss.specMean            , k=1, bc="error")(refwl)          "w l t 'Salvatore'"
 @gp :- :cmp bb[:, 1]                       bb[:, 2]                ./ Dierckx.Spline1D(     bb[:, 1] , bb[:, 2]               , k=1, bc="error")(refwl)          "w l t 'Beta'"
 
 
 plot(specs, cc)
-
 
 # Analysis with dedicated recipe
 abstract type EuclidComposite <: QSFit.QSORecipes.Type1 end
