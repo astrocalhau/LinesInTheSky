@@ -64,9 +64,20 @@ struct SingleSpec
 end
 
 
+function apply_scaling!(output::Matrix{Float64}, resampled::Matrix{Float64}, scaling::Vector{Float64})
+    @assert size(resampled)[1] == length(scaling)
+    @assert size(resampled) == size(output)
+    for i in 1:length(scaling)
+        output[i, :] .= resampled[i, :] .* scaling[i]
+    end
+end
+
+
+
 struct Composite
     domain::Vector{Float64}
-    matrix::Matrix{Float64}
+    resampled::Matrix{Float64}
+    scaling::Vector{Float64}
     composite::Vector{Float64}
     scatter::Vector{Float64}
     geom_composite::Vector{Float64}
@@ -94,7 +105,7 @@ struct Composite
         zr = [extrema(getfield.(specs, :z))...]
         specs = specs[i]
 
-        # Prepare domain for the composite spectrum and matrix to store all rebinned and scaled spectra
+        # Prepare domain for the composite spectrum and the local matrices to store resampled and scaled spectra
         xr = [minimum([minimum(s.x) for s in specs]),
               maximum([maximum(s.x) for s in specs])]
         if isnothing(dl)  &&  !isnothing(R)
@@ -104,14 +115,10 @@ struct Composite
         else
             error("Only one among R and dl is supposed to be used")
         end
+
         resampled = fill(NaN, (length(specs), length(domain)))
+        scaling   = fill(1. ,  length(specs))
         scaled    = fill(NaN, (length(specs), length(domain)))
-        plot_data = Dict(:redshift => Float64[],
-                         :orig_domain => Float64[],
-                         :orig_flux => Float64[],
-                         :comp_domain => Float64[],
-                         :comp_flux => Float64[],
-                         :comp_redshift => Float64[])
 
         # Loop through spectra
         @showprogress for i in 1:length(specs)
@@ -128,81 +135,76 @@ struct Composite
 
             # Resample spectrum
             Y = usemodel  ?  spec.m  :  spec.y
-            resampledY = Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(domain[j])
+            resampled[i, j] = Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(domain[j])
 
             # Scale spectrum
             if renorm
                 if !isnothing(refwl)
-                    scaledY = resampledY ./ Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(refwl)
+                    scaling[i] = 1 / Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(refwl)
                 elseif fit
-                    scaledY = resampledY ./ mean(Y)
+                    scaling[i] = 1 / mean(Y)
                 else
                     if i == 1
-                        scale = 1.0
+                        scaling[i] = 1.0
                     else
                         tmp, _, _ = collapse(scaled, j)
-                        scale = mean(tmp[findall(.!isnan.(tmp))])
+                        scaling[i] = mean(tmp[findall(.!isnan.(tmp))]) / mean(Y)
                     end
-
-                    scaledY = scale .* resampledY ./ mean(Y)
                 end
-            else
-                scaledY = resampledY
             end
-
-            # Store resampled and scaled spectrum
-            scaled[i, j] .= scaledY
+            scaled[i, :] .= resampled[i, :] .* scaling[i]
         end
 
-        composite          , scatter, nn = collapse(scaled)
-        geom_composite, geom_scatter, _  = collapse(log10.(scaled))
 
         if fit
+            apply_scaling!(scaled, resampled, scaling)
+            composite, scatter, nn = collapse(scaled)
             @info "Before:" sum(scatter[findall(.!isnan.(scatter))].^2)
             @gp :aa hist(scatter)
+
             config = CMPFit.Config()
-            config.ftol   = 1.e-2
-            config.xtol   = 1.e-2
-            config.gtol   = 1.e-2
-            config.covtol = 1.e-2
+            config.ftol   = 1.e-1
+            config.xtol   = 1.e-1
+            config.gtol   = 1.e-1
+            config.covtol = 1.e-1
             prog, shared, funct = composite_variance_func(log10.(scaled))
             bestfit = CMPFit.cmpfit(funct, fill(0., size(scaled)[1]), config=config)
-            try
-                println("AAA ", bestfit.elapsed, " ", bestfit.orignorm, " ", bestfit.norm)
-            catch
-            end
-            for i in 1:length(specs)
-                scaled[i, :] .*= 10^(bestfit.param[i])
-            end
+            println("AAA ", bestfit.elapsed, " ", bestfit.orignorm, " ", bestfit.bestnorm)
+            scaling .*= 10 .^(bestfit.param)
 
-            composite          , scatter, nn = collapse(scaled)
-            geom_composite, geom_scatter, _  = collapse(log10.(scaled))
+            apply_scaling!(scaled, resampled, scaling)
+            composite, scatter, nn = collapse(scaled)
             @info "After:" sum(scatter[findall(.!isnan.(scatter))].^2)
             @gp :- :aa hist(scatter)
         end
 
+        # Global scaling
+        apply_scaling!(scaled, resampled, scaling)
+        composite, scatter, nn = collapse(scaled)
+        scaling ./= mean(composite[findall(.!isnan.(composite))])
+        apply_scaling!(scaled, resampled, scaling)
+        composite     , scatter, nn      = collapse(       scaled)
+        geom_composite, geom_scatter, _  = collapse(log10.(scaled))
+
         if plot
+            plot_data = Dict(:redshift => Float64[],
+                             :orig_domain => Float64[],
+                             :orig_flux => Float64[],
+                             :comp_domain => Float64[],
+                             :comp_flux => Float64[],
+                             :comp_redshift => Float64[])
+
             for i in 1:length(specs)
                 spec = specs[i]
-                j = findall(.!isnan.(scaled[i, :]))
+                j = findall(.!isnan.(resampled[i, :]))
                 append!(plot_data[:redshift], fill(spec.z, length(spec.x)))
                 append!(plot_data[:orig_domain], spec.x)
                 append!(plot_data[:orig_flux], usemodel  ?  spec.m  :  spec.y)
                 append!(plot_data[:comp_domain], domain[j])
                 append!(plot_data[:comp_flux], scaled[i, j])
                 append!(plot_data[:comp_redshift], fill(spec.z, length(j)))
-                # @gp :aa "set autoscale fix" xlog=true ylog=true domain[j] scaledY "w p" spec.x Y "w p"
-                # readline()
             end
-        end
 
-        scale = mean(composite[findall(.!isnan.(composite))])
-        plot_data[:comp_flux] ./= scale
-        composite             ./= scale
-        scatter               ./= scale
-        geom_composite        .-= log10(scale)  # no need to apply offset on geom_scatter here
-
-        if plot
             @gp    :Composite "set grid" xlog=true ylog=true :-
             color = v2argb(:roma, plot_data[:redshift], alpha=0.8, range=[extrema(plot_data[:redshift])...])
             @gp :- :Composite plot_data[:orig_domain] plot_data[:orig_flux] color "w d t 'Data' lc rgb var" :-
@@ -212,7 +214,8 @@ struct Composite
             @gp :- :Composite domain 10 .^ geom_composite "w l t 'Geom. composite' lc rgb 'black' dt 2 lw 3" :-
             @gp :- :Composite "set autoscale fix"
         end
-        return new(domain, scaled, composite, scatter, geom_composite, geom_scatter, nn)
+
+        return new(domain, resampled, scaling, composite, scatter, geom_composite, geom_scatter, nn)
     end
 end
 
@@ -304,7 +307,7 @@ end
 
 
 # ====================================================================
-
+aaa()
 
 
 yy = CSV.read("/home/gcalderone/tmp/Yuming/q1_qsocomp_spec_constant_r500_20251114.csv", DataFrame)
