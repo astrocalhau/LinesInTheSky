@@ -16,14 +16,13 @@ function composite_variance_func(m::Matrix{Float64})
     end
 
     prog = ProgressUnknown(desc="Nspec=" * string(size(m)[1]) * ", evaluations:", dt=1.5, showspeed=true, color=:light_black)
-    shared = (sm=sm, ii=ii, output=Vector{Float64}(undef, length(sm)))
+    shared = (sm=sm, ii=ii, tmp=deepcopy(sm), output=Vector{Float64}(undef, length(sm)))
     funct = let prog=prog, shared=shared
         params::Vector{Float64} -> begin
             ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
-            # (rand() > 0.99)  &&  println(sum(shared.output .^2))
             for j in 1:length(shared.sm)
-                v = shared.sm[j] .+ params[shared.ii[j]]
-                shared.output[j] = std(v)
+                shared.tmp[j] .= shared.sm[j] .+ params[shared.ii[j]]
+                shared.output[j] = std(shared.tmp[j])
             end
             return shared.output
         end
