@@ -82,7 +82,7 @@ function composite_variance_func(bins::Vector{LinCompositeBin})
     end
 
     prog = ProgressUnknown(desc="evaluations:", dt=1.5, showspeed=true, color=:light_black)
-    shared = (bins=LogCompositeBin.(bins), prevpars=fill(NaN, Nspec), Nspec=Nspec, mm=mm, output=fill(0., length(bins)))
+    shared = (bins=LogCompositeBin.(bins), prevpars=fill(0., Nspec), Nspec=Nspec, mm=mm, output=fill(0., length(bins)))
     funct = let prog=prog, shared=shared
         params::Vector{Float64} -> begin
             ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
@@ -193,7 +193,6 @@ struct Composite
         if fit
             save_scaled_as_ref!.(bins)
             scatter = std.(bins)
-            @info "Before:" sum(scatter.^2)
             @gp :aa hist(scatter)
 
             config = CMPFit.Config()
@@ -204,12 +203,11 @@ struct Composite
 
             prog, shared, funct = composite_variance_func(bins)
             bestfit = CMPFit.cmpfit(funct, fill(0., length(specs)), config=config)
-            println("\nAAA ", bestfit.elapsed, " ", bestfit.orignorm, " ", bestfit.bestnorm)
+            @info bestfit.elapsed bestfit.orignorm bestfit.bestnorm
 
-            apply_scale!.(bins, 10 .^(bestfit.param))
+            apply_scale!.(bins, Ref(10 .^(bestfit.param)))
 
             scatter = std.(bins)
-            @info "After:" sum(scatter.^2)
             h = hist(scatter)
             @gp :- :aa hist_bins(h) hist_weights(h) "w steps t 'After' lw 3"
         end
