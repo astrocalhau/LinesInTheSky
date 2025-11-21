@@ -16,7 +16,7 @@ function composite_variance_func(m::Matrix{Float64})
     end
 
     prog = ProgressUnknown(desc="Nspec=" * string(size(m)[1]) * ", evaluations:", dt=1.5, showspeed=true, color=:light_black)
-    shared = (sm=sm, ii=ii, tmp=deepcopy(sm), output=Vector{Float64}(undef, length(sm)))
+    shared = (sm=sm, ii=ii, tmp=deepcopy(sm), output=fill(NaN, length(sm)))
     funct = let prog=prog, shared=shared
         params::Vector{Float64} -> begin
             ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
@@ -31,30 +31,6 @@ function composite_variance_func(m::Matrix{Float64})
 end
 
 
-# ====================================================================
-collapse(m; kws...) = collapse(m, 1:size(m)[2]; kws...)
-function collapse(m, j; robust=false)
-    avg = fill(NaN .* m[1], length(j))
-    sig = fill(NaN .* m[1], length(j))
-    nn  = fill(0 , length(j))
-    c = 1
-    for j in j
-        i = findall(.!isnan.(m[:, j]))
-        if length(i) > 0
-            nn[c] = length(i)
-            if robust
-                avg[c] = median(m[i, j])
-                sig[c] = mad(   m[i, j])
-            else
-                avg[c] = mean(  m[i, j])
-                sig[c] = std(   m[i, j])
-            end
-        end
-        c += 1
-    end
-    return avg, sig, nn
-end
-
 
 struct SingleSpec
     x::Vector{Float64}
@@ -64,25 +40,75 @@ struct SingleSpec
 end
 
 
-function apply_scaling!(output::Matrix{Float64}, resampled::Matrix{Float64}, scaling::Vector{Float64})
-    @assert size(resampled)[1] == length(scaling)
-    @assert size(resampled) == size(output)
-    for i in 1:length(scaling)
-        output[i, :] .= resampled[i, :] .* scaling[i]
-    end
+struct CompositeBin
+    wavelength::Float64
+    ispec::Vector{Int64}
+    spec::Vector{Float64}
+    scale::Vector{Float64}
+    scaled::Vector{Float64}
+
+    CompositeBin(l::Float64) = new(l, Vector{Int64}(), Vector{Float64}(), Vector{Float64}(), Vector{Float64}())
 end
 
+function add_spec!(bin::CompositeBin, ispec::Int64, spec::Float64)
+    @assert !isnan(spec)
+    push!(bin.ispec, ispec)
+    push!(bin.spec , spec)
+    push!(bin.scale , 1.)
+    push!(bin.scaled, spec)
+end
+
+function apply_absscale!(bin::CompositeBin, scale::Vector{Float64})
+    bin.scale  .= scale[bin.ispec]
+    bin.scaled .= bin.spec .* bin.scale
+end
+
+function apply_relscale!(bin::CompositeBin, scale::Vector{Float64})
+    bin.scale  .*= scale[bin.ispec]
+    bin.scaled .*= scale[bin.ispec]
+end
+
+function apply_absscale!(bin::CompositeBin, ispec::Int, scale::Float64)
+    i = findfirst(bin.ispec .== ispec)
+    bin.scale[i]  = scale
+    bin.scaled[i] = bin.spec[i] * bin.scale[i]
+end
+
+function apply_relscale!(bin::CompositeBin, ispec::Int, scale::Float64)
+    i = findfirst(bin.ispec .== ispec)
+    bin.scale[i]  *= scale
+    bin.scaled[i] *= scale
+end
+
+function getscaled(bin::CompositeBin, ispec::Int)
+    i = findfirst(bin.ispec .== ispec)
+    isnothing(i)  &&  (return (nothing, nothing))
+    return (bin.wavelength, bin.scaled[i])
+end
+
+function getscaled(bins::Vector{CompositeBin}, ispec::Int)
+    out = getscaled.(bins, ispec)
+    i = findall(.!isnothing.(getindex.(out, 1)))
+    return (getindex.(out[i], 1), getindex.(out[i], 2))
+end
+
+import Statistics: mean, std
+mean(bin::CompositeBin; geom=false) = mean(geom  ?  log10.(bin.scaled)  :  bin.scaled)
+std( bin::CompositeBin; geom=false) = std( geom  ?  log10.(bin.scaled)  :  bin.scaled)
+nn(  bin::CompositeBin) = length(bin.scaled)
+
+domain(bins::Vector{CompositeBin}) =  getfield.(bins, :wavelength)
+domain(cc::Composite)         =  domain(cc.bins)
+mean(  cc::Composite; kws...) =  mean.( cc.bins; kws...)
+std(   cc::Composite; kws...) =  std.(  cc.bins; kws...)
+nn(    cc::Composite)         =  nn.(   cc.bins)
 
 
 struct Composite
-    domain::Vector{Float64}
-    resampled::Matrix{Float64}
-    scaling::Vector{Float64}
-    composite::Vector{Float64}
-    scatter::Vector{Float64}
-    geom_composite::Vector{Float64}
-    geom_scatter::Vector{Float64}
-    nn::Vector{Float64}
+    R::Union{Nothing, Float64}
+    dl::Union{Nothing, Float64}
+    refwl::Union{Nothing, Float64}
+    bins::Vector{CompositeBin}
 
     function Composite(specs::Vector{SingleSpec};
                        rev=false,      # Reverse redshift ordering
@@ -105,7 +131,7 @@ struct Composite
         zr = [extrema(getfield.(specs, :z))...]
         specs = specs[i]
 
-        # Prepare domain for the composite spectrum and the local matrices to store resampled and scaled spectra
+        # Prepare domain for the composite spectrum
         xr = [minimum([minimum(s.x) for s in specs]),
               maximum([maximum(s.x) for s in specs])]
         if isnothing(dl)  &&  !isnothing(R)
@@ -116,13 +142,12 @@ struct Composite
             error("Only one among R and dl is supposed to be used")
         end
 
-        resampled = fill(NaN, (length(specs), length(domain)))
-        scaling   = fill(1. ,  length(specs))
-        scaled    = fill(NaN, (length(specs), length(domain)))
+        # Prepare CopositeBin structures
+        bins = CompositeBin.(domain)
 
         # Loop through spectra
-        @showprogress for i in 1:length(specs)
-            spec = specs[i]
+        @showprogress for ispec in 1:length(specs)
+            spec = specs[ispec]
 
             # Identify range of current spectrum
             @assert issorted(spec.x)
@@ -135,29 +160,32 @@ struct Composite
 
             # Resample spectrum
             Y = usemodel  ?  spec.m  :  spec.y
-            resampled[i, j] = Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(domain[j])
+            v = Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(domain[j])
+            for i in 1:length(j)
+                add_spec!(bins[j[i]], ispec, v[i])
+            end
 
             # Scale spectrum
             if renorm
                 if !isnothing(refwl)
-                    scaling[i] = 1 / Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(refwl)
+                    scale = 1 / Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(refwl)
                 elseif fit
-                    scaling[i] = 1 / mean(Y)
+                    scale = 1 / mean(Y)
                 else
-                    if i == 1
-                        scaling[i] = 1.0
+                    if ispec == 1
+                        scale = 1 / mean(Y)
                     else
-                        tmp, _, _ = collapse(scaled, j)
-                        scaling[i] = mean(tmp[findall(.!isnan.(tmp))]) / mean(Y)
+                        tmp = mean.(bins[j])
+                        scale = mean(tmp) / mean(Y)
                     end
                 end
+
+                apply_absscale!.(bins[j], ispec, scale)
             end
-            scaled[i, :] .= resampled[i, :] .* scaling[i]
         end
 
-
         if fit
-            apply_scaling!(scaled, resampled, scaling)
+            apply_scale!(scaled, resampled, scaling)
             composite, scatter, nn = collapse(scaled)
             @info "Before:" sum(scatter[findall(.!isnan.(scatter))].^2)
             @gp :aa hist(scatter)
@@ -172,50 +200,46 @@ struct Composite
             println("AAA ", bestfit.elapsed, " ", bestfit.orignorm, " ", bestfit.bestnorm)
             scaling .*= 10 .^(bestfit.param)
 
-            apply_scaling!(scaled, resampled, scaling)
+            apply_scale!(scaled, resampled, scaling)
             composite, scatter, nn = collapse(scaled)
             @info "After:" sum(scatter[findall(.!isnan.(scatter))].^2)
             @gp :- :aa hist(scatter)
         end
 
         # Global scaling
-        apply_scaling!(scaled, resampled, scaling)
-        composite, scatter, nn = collapse(scaled)
-        scaling ./= mean(composite[findall(.!isnan.(composite))])
-        apply_scaling!(scaled, resampled, scaling)
-        composite     , scatter, nn      = collapse(       scaled)
-        geom_composite, geom_scatter, _  = collapse(log10.(scaled))
+        apply_relscale!.(bins, Ref(fill(1 / mean(mean.(bins)), length(specs))))
 
         if plot
-            plot_data = Dict(:redshift => Float64[],
-                             :orig_domain => Float64[],
-                             :orig_flux => Float64[],
-                             :comp_domain => Float64[],
-                             :comp_flux => Float64[],
-                             :comp_redshift => Float64[])
+            data = Dict(:redshift => Float64[],
+                        :orig_domain => Float64[],
+                        :orig_flux => Float64[],
+                        :comp_domain => Float64[],
+                        :comp_flux => Float64[],
+                        :comp_redshift => Float64[])
 
-            for i in 1:length(specs)
-                spec = specs[i]
-                j = findall(.!isnan.(resampled[i, :]))
-                append!(plot_data[:redshift], fill(spec.z, length(spec.x)))
-                append!(plot_data[:orig_domain], spec.x)
-                append!(plot_data[:orig_flux], usemodel  ?  spec.m  :  spec.y)
-                append!(plot_data[:comp_domain], domain[j])
-                append!(plot_data[:comp_flux], scaled[i, j])
-                append!(plot_data[:comp_redshift], fill(spec.z, length(j)))
+            for ispec in 1:length(specs)
+                spec = specs[ispec]
+                append!(data[:redshift], fill(spec.z, length(spec.x)))
+                append!(data[:orig_domain], spec.x)
+                append!(data[:orig_flux], usemodel  ?  spec.m  :  spec.y)
+
+                wl, scaled = getscaled(bins, ispec)
+                append!(data[:comp_domain], wl)
+                append!(data[:comp_flux], scaled)
+                append!(data[:comp_redshift], fill(spec.z, length(wl)))
             end
 
             @gp    :Composite "set grid" xlog=true ylog=true :-
-            color = v2argb(:roma, plot_data[:redshift], alpha=0.8, range=[extrema(plot_data[:redshift])...])
-            @gp :- :Composite plot_data[:orig_domain] plot_data[:orig_flux] color "w d t 'Data' lc rgb var" :-
-            color =  v2argb(:roma, plot_data[:comp_redshift], alpha=0.8, range=[extrema(plot_data[:comp_redshift])...])
-            @gp :- :Composite plot_data[:comp_domain] plot_data[:comp_flux] color "w d t 'Resampled and scaled' lc rgb var" :-
-            @gp :- :Composite domain composite            "w l t 'Arith. composite' lc rgb 'black' lw 3" :-
-            @gp :- :Composite domain 10 .^ geom_composite "w l t 'Geom. composite' lc rgb 'black' dt 2 lw 3" :-
+            color = v2argb(:roma, data[:redshift], alpha=0.8, range=[extrema(data[:redshift])...])
+            @gp :- :Composite data[:orig_domain] data[:orig_flux] color "w d t 'Data' lc rgb var" :-
+            color =  v2argb(:roma, data[:comp_redshift], alpha=0.8, range=[extrema(data[:comp_redshift])...])
+            @gp :- :Composite data[:comp_domain] data[:comp_flux] color "w d t 'Resampled and scaled' lc rgb var" :-
+            @gp :- :Composite domain       mean.(bins)            "w l t 'Arith. composite' lc rgb 'black' lw 3" :-
+            @gp :- :Composite domain 10 .^ mean.(bins, geom=true) "w l t 'Geom. composite' lc rgb 'black' dt 2 lw 3" :-
             @gp :- :Composite "set autoscale fix"
         end
 
-        return new(domain, resampled, scaling, composite, scatter, geom_composite, geom_scatter, nn)
+        return new(R, dl, refwl, bins)
     end
 end
 
@@ -271,6 +295,7 @@ end
 
 
 # ====================================================================
+aaa()
 serialize_filename = "composite.ser"
 if !isfile(serialize_filename)
     input_path  = "input/input_Euclid"
