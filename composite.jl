@@ -177,10 +177,15 @@ struct Composite
             end
         end
 
+        if !isnothing(refwl)
+            i = findall(.!isnan.(mean.(bins)))
+            domain = domain[i]
+            bins = bins[i]
+        end
+
         if fit
-            apply_scale!(scaled, resampled, scaling)
-            composite, scatter, nn = collapse(scaled)
-            @info "Before:" sum(scatter[findall(.!isnan.(scatter))].^2)
+            scatter = std.(bins)
+            @info "Before:" sum(scatter.^2)
             @gp :aa hist(scatter)
 
             config = CMPFit.Config()
@@ -189,14 +194,16 @@ struct Composite
             config.gtol   = 1.e-1
             config.covtol = 1.e-1
             prog, shared, funct = composite_variance_func(log10.(scaled))
-            bestfit = CMPFit.cmpfit(funct, fill(0., size(scaled)[1]), config=config)
-            println("AAA ", bestfit.elapsed, " ", bestfit.orignorm, " ", bestfit.bestnorm)
-            scaling .*= 10 .^(bestfit.param)
+            bestfit = CMPFit.cmpfit(funct, fill(0., length(specs)), config=config)
+            println("\nAAA ", bestfit.elapsed, " ", bestfit.orignorm, " ", bestfit.bestnorm)
 
-            apply_scale!(scaled, resampled, scaling)
-            composite, scatter, nn = collapse(scaled)
-            @info "After:" sum(scatter[findall(.!isnan.(scatter))].^2)
-            @gp :- :aa hist(scatter)
+            scaling .*=
+            apply_absscale!.(bins, 10 .^(bestfit.param))
+
+            scatter = std.(bins)
+            @info "After:" sum(scatter.^2)
+            h = hist(scatter)
+            @gp :- :aa ist_bins(h) hist_weights(h) "w steps t 'After' lw 3"
         end
 
         # Global scaling
@@ -335,7 +342,7 @@ end
 
 
 # ====================================================================
-
+aaa()
 
 yy = CSV.read("/home/gcalderone/tmp/Yuming/q1_qsocomp_spec_constant_r500_20251114.csv", DataFrame)
 bb = CSV.read("/home/gcalderone/tmp/Yuming/sdss_all_mean_hostcorr.dat", DataFrame);
@@ -356,7 +363,6 @@ refwl = 5600.
 @gp :- :cmp bb[:, 1]                         bb[:, 2]                  ./ Dierckx.Spline1D(     bb[:, 1], bb[:, 2]                 , k=1, bc="error")(refwl)          "w l t 'Beta'"
 
 plot(specs, cc)
-aaa()
 
 
 # Analysis with dedicated recipe
