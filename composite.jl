@@ -12,67 +12,65 @@ struct SingleSpec
 end
 
 
-struct CompositeBin
+
+abstract type AbstractCompositeBin end
+
+struct LinCompositeBin <: AbstractCompositeBin
     wavelength::Float64
     ispec::Vector{Int64}
-    resampled::Vector{Float64}
+    ref::Vector{Float64}
     scaled::Vector{Float64}
-
-    CompositeBin(l::Float64) = new(l, Vector{Int64}(), Vector{Float64}(), Vector{Float64}())
 end
+LinCompositeBin(l::Float64) = LinCompositeBin(l, Vector{Int64}(), Vector{Float64}(), Vector{Float64}())
 
-function add_spec!(bin::CompositeBin, ispec::Int64, resampled::Float64)
-    @assert !isnan(resampled)
+struct LogCompositeBin <: AbstractCompositeBin
+    wavelength::Float64
+    ispec::Vector{Int64}
+    ref::Vector{Float64}
+    scaled::Vector{Float64}
+end
+LogCompositeBin(l::Float64) = LogCompositeBin(l, Vector{Int64}(), Vector{Float64}(), Vector{Float64}())
+
+LinCompositeBin(cc::LogCompositeBin) = LinCompositeBin(cc.wavelength, cc.ispec,  10 .^(cc.ref),  10 .^(cc.scaled))
+LogCompositeBin(cc::LinCompositeBin) = LogCompositeBin(cc.wavelength, cc.ispec, log10.(cc.ref), log10.(cc.scaled))
+
+   
+import Statistics: mean, std
+mean(bin::AbstractCompositeBin) =   mean(bin.scaled)
+std( bin::AbstractCompositeBin) =   std( bin.scaled)
+nn(  bin::AbstractCompositeBin) = length(bin.scaled)
+
+function add_spec!(bin::LinCompositeBin, ispec::Int64, ref::Float64)
+    @assert !isnan(ref)
     push!(bin.ispec, ispec)
-    push!(bin.resampled, resampled)
-    push!(bin.scaled, resampled)
+    push!(bin.ref, ref)
+    push!(bin.scaled, ref)
 end
 
-function apply_absscale!(bin::CompositeBin, scale::Vector{Float64})
-    bin.scaled .= bin.resampled .* scale[bin.ispec]
-end
+save_scaled_as_ref!(bin::AbstractCompositeBin) = bin.ref .= bin.scaled
 
-function apply_relscale!(bin::CompositeBin, scale::Vector{Float64})
-    bin.scaled .*= scale[bin.ispec]
-end
+apply_scale!(bin::LinCompositeBin, scales::Vector{Float64}) = bin.scaled .= bin.ref .* scales[bin.ispec]
+apply_scale!(bin::LogCompositeBin, scales::Vector{Float64}) = bin.scaled .= bin.ref .+ scales[bin.ispec]
 
-function apply_absscale!(bin::CompositeBin, ispec::Int, scale::Float64)
+function apply_scale!(bin::LinCompositeBin, scale::Float64, ispec::Int)
     i = findfirst(bin.ispec .== ispec)
-    bin.scaled[i] = bin.resampled[i] * scale
+    bin.scaled[i] = bin.ref[i] * scale
 end
 
-function apply_relscale!(bin::CompositeBin, ispec::Int, scale::Float64)
-    i = findfirst(bin.ispec .== ispec)
-    bin.scaled[i] *= scale
-end
-
-function getscaled(bin::CompositeBin, ispec::Int)
+function getscaled(bin::AbstractCompositeBin, ispec::Int)
     i = findfirst(bin.ispec .== ispec)
     isnothing(i)  &&  (return (nothing, nothing))
     return (bin.wavelength, bin.scaled[i])
 end
 
-function getscaled(bins::Vector{CompositeBin}, ispec::Int)
+function getscaled(bins::Vector{T}, ispec::Int) where T <: AbstractCompositeBin
     out = getscaled.(bins, ispec)
     i = findall(.!isnothing.(getindex.(out, 1)))
     return (getindex.(out[i], 1), getindex.(out[i], 2))
 end
 
-function getscales(bins::Vector{CompositeBin})
-    out = fill(0., maximum(maximum(getfield.(bins, :ispec))))
-    for bin in bins
-        out[bin.ispec] .= (bin.scaled ./ bin.resampled)
-    end
-    return out
-end
 
-import Statistics: mean, std
-mean(bin::CompositeBin; geom=false) = mean(geom  ?  log10.(bin.scaled)  :  bin.scaled)
-std( bin::CompositeBin; geom=false) = std( geom  ?  log10.(bin.scaled)  :  bin.scaled)
-nn(  bin::CompositeBin) = length(bin.scaled)
-
-
-function composite_variance_func(bins::Vector{CompositeBin})
+function composite_variance_func(bins::Vector{LinCompositeBin})
     @assert all(nn.(bins) .>= 2)
 
     prog = ProgressUnknown(desc="evaluations:", dt=1.5, showspeed=true, color=:light_black)
@@ -96,7 +94,7 @@ struct Composite
     R::Union{Nothing, Float64}
     dl::Union{Nothing, Float64}
     refwl::Union{Nothing, Float64}
-    bins::Vector{CompositeBin}
+    bins::Vector{LinCompositeBin}
 
     function Composite(specs::Vector{SingleSpec};
                        rev=false,      # Reverse redshift ordering
@@ -131,7 +129,7 @@ struct Composite
         end
 
         # Prepare CopositeBin structures
-        bins = CompositeBin.(domain)
+        bins = LinCompositeBin.(domain)
 
         # Loop through spectra
         @showprogress for ispec in 1:length(specs)
@@ -168,7 +166,7 @@ struct Composite
                     end
                 end
 
-                apply_absscale!.(bins[j], ispec, scale)
+                apply_scale!.(bins[j], scale, ispec)
             end
         end
 
@@ -200,7 +198,8 @@ struct Composite
         end
 
         # Global scaling
-        apply_relscale!.(bins, Ref(fill(1 / mean(mean.(bins)), length(specs))))
+        save_scaled_as_ref!.(bins)
+        apply_scale!.(bins, Ref(fill(1 / mean(mean.(bins)), length(specs))))
 
         if plot
             data = Dict(:redshift => Float64[],
@@ -227,8 +226,8 @@ struct Composite
             @gp :- :Composite data[:orig_domain] data[:orig_flux] color "w d t 'Data' lc rgb var" :-
             color =  v2argb(:roma, data[:comp_redshift], alpha=0.8, range=[extrema(data[:comp_redshift])...])
             @gp :- :Composite data[:comp_domain] data[:comp_flux] color "w d t 'Resampled and scaled' lc rgb var" :-
-            @gp :- :Composite domain       mean.(bins)            "w l t 'Arith. composite' lc rgb 'black' lw 3" :-
-            @gp :- :Composite domain 10 .^ mean.(bins, geom=true) "w l t 'Geom. composite' lc rgb 'black' dt 2 lw 3" :-
+            @gp :- :Composite domain       mean.(bins)                    "w l t 'Arith. composite' lc rgb 'black' lw 3" :-
+            @gp :- :Composite domain 10 .^ mean.(LogCompositeBin.(bins))  "w l t 'Geom. composite' lc rgb 'black' dt 2 lw 3" :-
             @gp :- :Composite "set autoscale fix"
         end
 
@@ -236,10 +235,12 @@ struct Composite
     end
 end
 
-domain(cc::Composite)         =  getfield.(cc.bins, :wavelength)
-mean(  cc::Composite; kws...) =  mean.( cc.bins; kws...)
-std(   cc::Composite; kws...) =  std.(  cc.bins; kws...)
-nn(    cc::Composite)         =  nn.(   cc.bins)
+domain(  cc::Composite) =  getfield.(cc.bins, :wavelength)
+mean(    cc::Composite) =  mean.(    cc.bins)
+std(     cc::Composite) =  std.(     cc.bins)
+nn(      cc::Composite) =  nn.(      cc.bins)
+geommean(cc::Composite) =  mean.(LogCompositeBin.(cc.bins))
+geomstd( cc::Composite) =  std.( LogCompositeBin.(cc.bins))
 
 
 
@@ -267,10 +268,10 @@ function plot(specs::Vector{SingleSpec}, cc::Composite)
     @gp :- 1 xx yy zz[:]                                                 "w p            notit                         lc palette pt 4 ps 0.25"  :-
     @gp :- 1 dom nn(cc)                                                  "w l            t 'N. spectra'           lw 3 lc rgb 'black' axes x1y2" :-
 
-    acomp = mean(cc)
+    acomp  = mean(cc)
     sacomp = std(cc)
-    gcomp = mean(cc, geom=true)
-    sgcomp = std(cc, geom=true)
+    gcomp  = geommean(cc)
+    sgcomp = geomstd(cc)
 
     @gp :- 2 "set y2label ''"        "set ytics mirror"       "set style fill transparent solid 0.5" :-
     @gp :- 2 ylab="Lum [arb. units]" "set xtics format ''"       bma=0.42  tma=0.77 yr=extrema(acomp) ylog=true :-
@@ -346,14 +347,14 @@ ss = ss[findall(isfinite.(ss.specMean)), :]
 
 refwl = 5600.
 @gp    :cmp "set grid" xlabel="Wavelength [A] (rest frame)" ylabel="{/Symbol l} L_{/Symbol l} (arb.units)" xlog=true ylog=true :-
-@gp :- :cmp  domain(cc)    domain(cc)     .*       mean(cc)            ./ Dierckx.Spline1D( domain(cc)  ,      mean(cc)            , k=1, bc="error")(refwl) ./ refwl "w l t 'arith'"
-@gp :- :cmp domain(rcc)    domain(rcc)    .*      mean(rcc)            ./ Dierckx.Spline1D(domain(rcc)  ,      mean(rcc)           , k=1, bc="error")(refwl) ./ refwl "w l t 'arith rev'"
-@gp :- :cmp  domain(cc)    domain(cc)     .* 10 .^ mean(cc, geom=true) ./ Dierckx.Spline1D( domain(cc)  , 10 .^ mean(cc, geom=true), k=1, bc="error")(refwl) ./ refwl "w l t 'geom'"
-@gp :- :cmp domain(rcc)    domain(rcc)    .* 10 .^mean(rcc, geom=true) ./ Dierckx.Spline1D(domain(rcc)  , 10 .^mean(rcc, geom=true), k=1, bc="error")(refwl) ./ refwl "w l t 'geom rev'"
-@gp :- :cmp yy.wavelength yy.wavelength   .* yy.mean_flux              ./ Dierckx.Spline1D(yy.wavelength, yy.mean_flux             , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (arith)'"
-@gp :- :cmp yy.wavelength yy.wavelength   .* yy.geo_flux               ./ Dierckx.Spline1D(yy.wavelength, yy.geo_flux              , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (geom)'"
-@gp :- :cmp ss.wavelength                    ss.specMean               ./ Dierckx.Spline1D(ss.wavelength, ss.specMean              , k=1, bc="error")(refwl)          "w l t 'Salvatore'"
-@gp :- :cmp bb[:, 1]                         bb[:, 2]                  ./ Dierckx.Spline1D(     bb[:, 1], bb[:, 2]                 , k=1, bc="error")(refwl)          "w l t 'Beta'"
+@gp :- :cmp  domain(cc)    domain(cc)     .*       mean(cc)     ./ Dierckx.Spline1D( domain(cc)  ,      mean(cc)     , k=1, bc="error")(refwl) ./ refwl "w l t 'arith'"
+@gp :- :cmp domain(rcc)    domain(rcc)    .*      mean(rcc)     ./ Dierckx.Spline1D(domain(rcc)  ,      mean(rcc)    , k=1, bc="error")(refwl) ./ refwl "w l t 'arith rev'"
+@gp :- :cmp  domain(cc)    domain(cc)     .* 10 .^geommean( cc) ./ Dierckx.Spline1D( domain(cc)  , 10 .^geommean(cc) , k=1, bc="error")(refwl) ./ refwl "w l t 'geom'"
+@gp :- :cmp domain(rcc)    domain(rcc)    .* 10 .^geommean(rcc) ./ Dierckx.Spline1D(domain(rcc)  , 10 .^geommean(rcc), k=1, bc="error")(refwl) ./ refwl "w l t 'geom rev'"
+@gp :- :cmp yy.wavelength yy.wavelength   .* yy.mean_flux       ./ Dierckx.Spline1D(yy.wavelength, yy.mean_flux      , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (arith)'"
+@gp :- :cmp yy.wavelength yy.wavelength   .* yy.geo_flux        ./ Dierckx.Spline1D(yy.wavelength, yy.geo_flux       , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (geom)'"
+@gp :- :cmp ss.wavelength                    ss.specMean        ./ Dierckx.Spline1D(ss.wavelength, ss.specMean       , k=1, bc="error")(refwl)          "w l t 'Salvatore'"
+@gp :- :cmp bb[:, 1]                         bb[:, 2]           ./ Dierckx.Spline1D(     bb[:, 1], bb[:, 2]          , k=1, bc="error")(refwl)          "w l t 'Beta'"
 
 plot(specs, cc)
 
