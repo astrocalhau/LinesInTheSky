@@ -68,10 +68,9 @@ function getscaled(bins::Vector{T}, ispec::Int) where T <: AbstractCompositeBin
 end
 
 
-function composite_variance_func(bins::Vector{LinCompositeBin})
+function composite_variance_func(bins::Vector{LinCompositeBin}, Nspec)
     @assert all(nn.(bins) .>= 2)
 
-    Nspec = maximum(maximum(getfield.(bins, :ispec)))
     mm = [Vector{NTuple{2, Int}}() for i in 1:Nspec]
     for j in 1:length(bins)
         i = 1
@@ -111,6 +110,7 @@ struct Composite
     dl::Union{Nothing, Float64}
     refwl::Union{Nothing, Float64}
     bins::Vector{LinCompositeBin}
+    Nspec::Int
 
     function Composite(specs::Vector{SingleSpec};
                        rev=false,      # Reverse redshift ordering
@@ -119,7 +119,7 @@ struct Composite
                        usemodel=false, # Use model rather than data
                        renorm=true,    # Normalize each spectrum before stacking
                        refwl=nothing,  # Use a specific wavelength for normalization
-                       fit=false,      # Estimate individual spectra normalization by requiring the output scatter is minimized
+                       equal=false,    # Scale all input spectra to have mean=1
                        plot=false)     # Do plot while accumulating spectra
         if usemodel
             @assert  all([all(s.m .> 0) for s in specs])
@@ -132,6 +132,7 @@ struct Composite
         i = sortperm( getfield.(specs, :z), rev=rev)
         zr = [extrema(getfield.(specs, :z))...]
         specs = specs[i]
+        Nspec = length(specs)
 
         # Prepare domain for the composite spectrum
         xr = [minimum([minimum(s.x) for s in specs]),
@@ -148,7 +149,7 @@ struct Composite
         bins = LinCompositeBin.(domain)
 
         # Loop through spectra
-        @showprogress for ispec in 1:length(specs)
+        @showprogress for ispec in 1:Nspec
             spec = specs[ispec]
 
             # Identify range of current spectrum
@@ -171,7 +172,7 @@ struct Composite
             if renorm
                 if !isnothing(refwl)
                     scale = 1 / Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(refwl)
-                elseif fit
+                elseif equal
                     scale = 1 / mean(Y)
                 else
                     if ispec == 1
@@ -190,31 +191,9 @@ struct Composite
         domain = domain[i]
         bins = bins[i]
 
-        if fit
-            save_scaled_as_ref!.(bins)
-            scatter = std.(bins)
-            @gp :aa hist(scatter)
-
-            config = CMPFit.Config()
-            config.ftol   = 1.e-1
-            config.xtol   = 1.e-1
-            config.gtol   = 1.e-1
-            config.covtol = 1.e-1
-
-            prog, shared, funct = composite_variance_func(bins)
-            bestfit = CMPFit.cmpfit(funct, fill(0., length(specs)), config=config)
-            @info bestfit.elapsed bestfit.orignorm bestfit.bestnorm
-
-            apply_scale!.(bins, Ref(10 .^(bestfit.param)))
-
-            scatter = std.(bins)
-            h = hist(scatter)
-            @gp :- :aa hist_bins(h) hist_weights(h) "w steps t 'After' lw 3"
-        end
-
         # Global scaling
         save_scaled_as_ref!.(bins)
-        apply_scale!.(bins, Ref(fill(1 / mean(mean.(bins)), length(specs))))
+        apply_scale!.(bins, Ref(fill(1 / mean(mean.(bins)), Nspec)))
         save_scaled_as_ref!.(bins)
 
         if plot
@@ -225,7 +204,7 @@ struct Composite
                         :comp_flux => Float64[],
                         :comp_redshift => Float64[])
 
-            for ispec in 1:length(specs)
+            for ispec in 1:Nspec
                 spec = specs[ispec]
                 append!(data[:redshift], fill(spec.z, length(spec.x)))
                 append!(data[:orig_domain], spec.x)
@@ -241,13 +220,13 @@ struct Composite
             color = v2argb(:roma, data[:redshift], alpha=0.8, range=[extrema(data[:redshift])...])
             @gp :- :Composite data[:orig_domain] data[:orig_flux] color "w d t 'Data' lc rgb var" :-
             color =  v2argb(:roma, data[:comp_redshift], alpha=0.8, range=[extrema(data[:comp_redshift])...])
-            @gp :- :Composite data[:comp_domain] data[:comp_flux] color "w d t 'Resampled and scaled' lc rgb var" :-
+            @gp :- :Composite data[:comp_domain] data[:comp_flux] color   "w d t 'Resampled and scaled' lc rgb var" :-
             @gp :- :Composite domain       mean.(bins)                    "w l t 'Arith. composite' lc rgb 'black' lw 3" :-
             @gp :- :Composite domain 10 .^ mean.(LogCompositeBin.(bins))  "w l t 'Geom. composite' lc rgb 'black' dt 2 lw 3" :-
             @gp :- :Composite "set autoscale fix"
         end
 
-        return new(R, dl, refwl, bins)
+        return new(R, dl, refwl, bins, Nspec)
     end
 end
 
@@ -258,6 +237,59 @@ nn(      cc::Composite) =  nn.(      cc.bins)
 geommean(cc::Composite) =  mean.(LogCompositeBin.(cc.bins))
 geomstd( cc::Composite) =  std.( LogCompositeBin.(cc.bins))
 
+function minimize_scatter!(cc::Composite)
+    fitstat(v) = sum(v .^ 2)
+
+    @assert all(nn(cc) .>= 2)
+    save_scaled_as_ref!.(cc.bins)
+    bins = LogCompositeBin.(cc.bins)
+
+    v = std.(bins)
+    histrange = [extrema(v)...]
+    h = hist(v, range=histrange, bs=0.01)
+    @gp :aa hist_bins(h) hist_weights(h) "w steps t 'Before $(fitstat(v))' lw 3"
+
+    mm = [Vector{NTuple{2, Int}}() for i in 1:cc.Nspec]
+    for j in 1:length(bins)
+        i = 1
+        for ispec in bins[j].ispec
+            push!(mm[ispec], (i, j))
+            i += 1
+        end
+    end
+
+    prog = ProgressUnknown(desc="evaluations:", dt=1.5, showspeed=true, color=:light_black)
+    shared = (bins=bins, prevpars=fill(0., cc.Nspec), Nspec=cc.Nspec, mm=mm, output=fill(0., length(bins)))
+    funct = let prog=prog, shared=shared
+        params::Vector{Float64} -> begin
+            ProgressMeter.next!(prog; showvalues=() -> [(:fitstat, fitstat(shared.output))])
+            for ispec in 1:shared.Nspec
+                if shared.prevpars[ispec] != params[ispec]
+                    for (i, j) in mm[ispec]
+                        shared.bins[j].scaled[i] = shared.bins[j].ref[i] + params[ispec]
+                    end
+                    shared.prevpars[ispec] = params[ispec]
+                end
+            end
+            shared.output .= std.(shared.bins)
+            return shared.output
+        end
+    end
+
+    config = CMPFit.Config()
+    config.ftol   = 1.e-6
+    config.xtol   = 1.e-6
+    config.gtol   = 1.e-6
+    config.covtol = 1.e-6
+
+    bestfit = CMPFit.cmpfit(funct, fill(0., cc.Nspec), config=config)
+    @info bestfit.elapsed bestfit.orignorm bestfit.bestnorm
+    apply_scale!.(cc.bins, Ref(10 .^(bestfit.param)))
+
+    v = std.(bins)
+    h = hist(v, range=histrange, bs=0.01)
+    @gp :- :aa hist_bins(h) hist_weights(h) "w steps t 'After $(fitstat(v))' lw 3"
+end
 
 
 function plot(specs::Vector{SingleSpec}, cc::Composite)
