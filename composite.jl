@@ -12,7 +12,6 @@ struct SingleSpec
 end
 
 
-
 abstract type AbstractCompositeBin end
 
 struct LinCompositeBin <: AbstractCompositeBin
@@ -34,7 +33,7 @@ LogCompositeBin(l::Float64) = LogCompositeBin(l, Vector{Int64}(), Vector{Float64
 LinCompositeBin(cc::LogCompositeBin) = LinCompositeBin(cc.wavelength, cc.ispec,  10 .^(cc.ref),  10 .^(cc.scaled))
 LogCompositeBin(cc::LinCompositeBin) = LogCompositeBin(cc.wavelength, cc.ispec, log10.(cc.ref), log10.(cc.scaled))
 
-   
+
 import Statistics: mean, std
 mean(bin::AbstractCompositeBin) =   mean(bin.scaled)
 std( bin::AbstractCompositeBin) =   std( bin.scaled)
@@ -50,7 +49,6 @@ end
 save_scaled_as_ref!(bin::AbstractCompositeBin) = bin.ref .= bin.scaled
 
 apply_scale!(bin::LinCompositeBin, scales::Vector{Float64}) = bin.scaled .= bin.ref .* scales[bin.ispec]
-apply_scale!(bin::LogCompositeBin, scales::Vector{Float64}) = bin.scaled .= bin.ref .+ scales[bin.ispec]
 
 function apply_scale!(bin::LinCompositeBin, scale::Float64, ispec::Int)
     i = findfirst(bin.ispec .== ispec)
@@ -73,15 +71,29 @@ end
 function composite_variance_func(bins::Vector{LinCompositeBin})
     @assert all(nn.(bins) .>= 2)
 
+    mm = Vector{Vector{NTuple{2, Int}}}()
+    for ispec in 1:maximum(maximum(getfield.(bins, :ispec)))
+        push!(mm, [(findfirst(bins[j].ispec .== ispec), j) for j in findall([ispec in bin.ispec for bin in bins])])
+    end
+
     prog = ProgressUnknown(desc="evaluations:", dt=1.5, showspeed=true, color=:light_black)
-    shared = (bins=LogCompositeBin.(bins), output=fill(0., length(bins)))
+    shared = (bins=LogCompositeBin.(bins), prevpars=fill(NaN, maximum(maximum(getfield.(bins, :ispec)))), mm=mm, output=fill(0., length(bins)))
     funct = let prog=prog, shared=shared
         params::Vector{Float64} -> begin
             ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
-            for j in 1:length(shared.bins)
-                apply_scale!(shared.bins[j], params)
-                shared.output[j] = std(shared.bins[j])
+            # for j in 1:length(shared.bins)
+            #     apply_scale!(shared.bins[j], params)
+            #     shared.output[j] = std(shared.bins[j])
+            # end
+            for ispec in 1:5372
+                if shared.prevpars[ispec] != params[ispec]
+                    for (i, j) in mm[ispec]
+                        shared.bins[j].scaled[i] = shared.bins[j].ref[i] + params[ispec]
+                    end
+                    shared.prevpars[ispec] = params[ispec]
+                end
             end
+            shared.output .= std.(shared.bins)
             return shared.output
         end
     end
@@ -189,12 +201,12 @@ struct Composite
             bestfit = CMPFit.cmpfit(funct, fill(0., length(specs)), config=config)
             println("\nAAA ", bestfit.elapsed, " ", bestfit.orignorm, " ", bestfit.bestnorm)
 
-            apply_absscale!.(bins, 10 .^(bestfit.param))
+            apply_scale!.(bins, 10 .^(bestfit.param))
 
             scatter = std.(bins)
             @info "After:" sum(scatter.^2)
             h = hist(scatter)
-            @gp :- :aa ist_bins(h) hist_weights(h) "w steps t 'After' lw 3"
+            @gp :- :aa hist_bins(h) hist_weights(h) "w steps t 'After' lw 3"
         end
 
         # Global scaling
