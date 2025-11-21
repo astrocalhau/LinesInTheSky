@@ -277,10 +277,10 @@ function minimize_scatter!(cc::Composite)
     end
 
     config = CMPFit.Config()
-    config.ftol   = 1.e-6
-    config.xtol   = 1.e-6
-    config.gtol   = 1.e-6
-    config.covtol = 1.e-6
+    config.ftol   = 1.e-3
+    config.xtol   = 1.e-3
+    config.gtol   = 1.e-3
+    config.covtol = 1.e-3
 
     bestfit = CMPFit.cmpfit(funct, fill(0., cc.Nspec), config=config)
     @info bestfit.elapsed bestfit.orignorm bestfit.bestnorm
@@ -375,8 +375,8 @@ if !isfile(serialize_filename)
     i = findall(getfield.(specs, :z) .< 4)
     specs = specs[i]
 
-    cc  = Composite(specs, R=2000)
-    rcc = Composite(specs, R=2000, rev=true)
+    cc  = Composite(specs, R=2700)
+    rcc = Composite(specs, R=2700, rev=true)
     serialize(serialize_filename, (specs, cc, rcc))
 else
     specs, cc, rcc = deserialize(serialize_filename)
@@ -385,6 +385,12 @@ end
 
 # ====================================================================
 aaa()
+
+
+ff  = Composite(specs, R=2700, plot=true, equal=true)
+@gp domain(cc) domain(cc) .* mean(cc) "w l" xlog=true ylog=true domain(rcc) domain(rcc) .* mean(rcc) "w l" domain(ff) domain(ff) .* mean(ff) "w l"
+minimize_scatter!(ff)
+
 
 yy = CSV.read("/home/gcalderone/tmp/Yuming/q1_qsocomp_spec_constant_r500_20251114.csv", DataFrame)
 bb = CSV.read("/home/gcalderone/tmp/Yuming/sdss_all_mean_hostcorr.dat", DataFrame);
