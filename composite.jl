@@ -71,13 +71,18 @@ end
 function composite_variance_func(bins::Vector{LinCompositeBin})
     @assert all(nn.(bins) .>= 2)
 
-    mm = Vector{Vector{NTuple{2, Int}}}()
-    for ispec in 1:maximum(maximum(getfield.(bins, :ispec)))
-        push!(mm, [(findfirst(bins[j].ispec .== ispec), j) for j in findall([ispec in bin.ispec for bin in bins])])
+    Nspec = maximum(maximum(getfield.(bins, :ispec)))
+    mm = [Vector{NTuple{2, Int}}() for i in 1:Nspec]
+    for j in 1:length(bins)
+        i = 1
+        for ispec in bins[j].ispec
+            push!(mm[ispec], (i, j))
+            i += 1
+        end
     end
 
     prog = ProgressUnknown(desc="evaluations:", dt=1.5, showspeed=true, color=:light_black)
-    shared = (bins=LogCompositeBin.(bins), prevpars=fill(NaN, maximum(maximum(getfield.(bins, :ispec)))), mm=mm, output=fill(0., length(bins)))
+    shared = (bins=LogCompositeBin.(bins), prevpars=fill(NaN, Nspec), Nspec=Nspec, mm=mm, output=fill(0., length(bins)))
     funct = let prog=prog, shared=shared
         params::Vector{Float64} -> begin
             ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
@@ -85,7 +90,7 @@ function composite_variance_func(bins::Vector{LinCompositeBin})
             #     apply_scale!(shared.bins[j], params)
             #     shared.output[j] = std(shared.bins[j])
             # end
-            for ispec in 1:5372
+            for ispec in 1:shared.Nspec
                 if shared.prevpars[ispec] != params[ispec]
                     for (i, j) in mm[ispec]
                         shared.bins[j].scaled[i] = shared.bins[j].ref[i] + params[ispec]
