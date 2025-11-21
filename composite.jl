@@ -4,34 +4,6 @@ using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer, CMPFit
 Gnuplot.options.term = "qt size 1600,900 enhanced font 'Latin Modern Roman, 13' lw 1.5"
 
 # ====================================================================
-function composite_variance_func(m::Matrix{Float64})
-    ii = Vector{Vector{Int}}()
-    sm = Vector{Vector{Float64}}()
-    for j in 1:size(m)[2]
-        i = findall(isfinite.(m[:, j]))
-        if length(i) >= 2 # we need at least two spectra to calculate the scatter
-            push!(ii, i)
-            push!(sm, m[i, j])
-        end
-    end
-
-    prog = ProgressUnknown(desc="Nspec=" * string(size(m)[1]) * ", evaluations:", dt=1.5, showspeed=true, color=:light_black)
-    shared = (sm=sm, ii=ii, tmp=deepcopy(sm), output=fill(NaN, length(sm)))
-    funct = let prog=prog, shared=shared
-        params::Vector{Float64} -> begin
-            ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
-            for j in 1:length(shared.sm)
-                shared.tmp[j] .= shared.sm[j] .+ params[shared.ii[j]]
-                shared.output[j] = std(shared.tmp[j])
-            end
-            return shared.output
-        end
-    end
-    return prog, shared, funct
-end
-
-
-
 struct SingleSpec
     x::Vector{Float64}
     y::Vector{Float64}
@@ -92,10 +64,36 @@ function getscaled(bins::Vector{CompositeBin}, ispec::Int)
     return (getindex.(out[i], 1), getindex.(out[i], 2))
 end
 
+function getscales(bins::Vector{CompositeBin})
+    out = fill(0., maximum(maximum(getfield.(bins, :ispec))))
+    for bin in bins
+        out[bin.ispec] .= bin.scale
+    end
+    return out
+end
+
 import Statistics: mean, std
 mean(bin::CompositeBin; geom=false) = mean(geom  ?  log10.(bin.scaled)  :  bin.scaled)
 std( bin::CompositeBin; geom=false) = std( geom  ?  log10.(bin.scaled)  :  bin.scaled)
 nn(  bin::CompositeBin) = length(bin.scaled)
+
+
+function composite_variance_func(bins::Vector{CompositeBin})
+    @assert all(nn.(bins) .>= 2)
+
+    prog = ProgressUnknown(desc="evaluations:", dt=1.5, showspeed=true, color=:light_black)
+    shared = (bins=bins, output=fill(NaN, length(bins)))
+    funct = let prog=prog, shared=shared
+        logparams::Vector{Float64} -> begin
+            ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
+            apply_absscale!.(shared.bins, Ref(10 .^logparams))
+            shared.output .= std.(shared.bins, geom=true)
+            return shared.output
+        end
+    end
+    return prog, shared, funct
+end
+
 
 struct Composite
     R::Union{Nothing, Float64}
@@ -191,11 +189,11 @@ struct Composite
             config.xtol   = 1.e-1
             config.gtol   = 1.e-1
             config.covtol = 1.e-1
-            prog, shared, funct = composite_variance_func(log10.(scaled))
-            bestfit = CMPFit.cmpfit(funct, fill(0., length(specs)), config=config)
+
+            prog, shared, funct = composite_variance_func(bins)
+            bestfit = CMPFit.cmpfit(funct, log10.(getscales(bins)), config=config)
             println("\nAAA ", bestfit.elapsed, " ", bestfit.orignorm, " ", bestfit.bestnorm)
 
-            scaling .*=
             apply_absscale!.(bins, 10 .^(bestfit.param))
 
             scatter = std.(bins)
