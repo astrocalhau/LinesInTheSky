@@ -97,13 +97,6 @@ mean(bin::CompositeBin; geom=false) = mean(geom  ?  log10.(bin.scaled)  :  bin.s
 std( bin::CompositeBin; geom=false) = std( geom  ?  log10.(bin.scaled)  :  bin.scaled)
 nn(  bin::CompositeBin) = length(bin.scaled)
 
-domain(bins::Vector{CompositeBin}) =  getfield.(bins, :wavelength)
-domain(cc::Composite)         =  domain(cc.bins)
-mean(  cc::Composite; kws...) =  mean.( cc.bins; kws...)
-std(   cc::Composite; kws...) =  std.(  cc.bins; kws...)
-nn(    cc::Composite)         =  nn.(   cc.bins)
-
-
 struct Composite
     R::Union{Nothing, Float64}
     dl::Union{Nothing, Float64}
@@ -243,6 +236,11 @@ struct Composite
     end
 end
 
+domain(cc::Composite)         =  getfield.(cc.bins, :wavelength)
+mean(  cc::Composite; kws...) =  mean.( cc.bins; kws...)
+std(   cc::Composite; kws...) =  std.(  cc.bins; kws...)
+nn(    cc::Composite)         =  nn.(   cc.bins)
+
 
 
 function plot(specs::Vector{SingleSpec}, cc::Composite)
@@ -344,10 +342,10 @@ ss = ss[findall(isfinite.(ss.specMean)), :]
 
 refwl = 5600.
 @gp    :cmp "set grid" xlabel="Wavelength [A] (rest frame)" ylabel="{/Symbol l} L_{/Symbol l} (arb.units)" xlog=true ylog=true :-
-@gp :- :cmp  cc.domain     cc.domain    .*  cc.composite           ./ Dierckx.Spline1D( cc.domain    ,  cc.composite          , k=1, bc="error")(refwl) ./ refwl "w l t 'arith'"
-@gp :- :cmp rcc.domain    rcc.domain    .* rcc.composite           ./ Dierckx.Spline1D(rcc.domain    , rcc.composite          , k=1, bc="error")(refwl) ./ refwl "w l t 'arith rev'"
-@gp :- :cmp  cc.domain     cc.domain    .* 10 .^ cc.geom_composite ./ Dierckx.Spline1D( cc.domain    , 10 .^ cc.geom_composite, k=1, bc="error")(refwl) ./ refwl "w l t 'geom'"
-@gp :- :cmp rcc.domain    rcc.domain    .* 10 .^rcc.geom_composite ./ Dierckx.Spline1D(rcc.domain    , 10 .^rcc.geom_composite, k=1, bc="error")(refwl) ./ refwl "w l t 'geom rev'"
+@gp :- :cmp  domain(cc)    domain(cc)     .*  mean(cc)           ./ Dierckx.Spline1D( domain(cc) ,  mean(cc)          , k=1, bc="error")(refwl) ./ refwl "w l t 'arith'"
+@gp :- :cmp domain(rcc)    domain(rcc)    .* mean(rcc)           ./ Dierckx.Spline1D(domain(rcc) , mean(rcc)          , k=1, bc="error")(refwl) ./ refwl "w l t 'arith rev'"
+@gp :- :cmp  domain(cc)    domain(cc)     .* 10 .^ mean(cc, geom=true) ./ Dierckx.Spline1D( domain(cc) , 10 .^ mean(cc, geom=true), k=1, bc="error")(refwl) ./ refwl "w l t 'geom'"
+@gp :- :cmp domain(rcc)    domain(rcc)    .* 10 .^mean(rcc, geom=true) ./ Dierckx.Spline1D(domain(rcc) , 10 .^mean(rcc, geom=true), k=1, bc="error")(refwl) ./ refwl "w l t 'geom rev'"
 @gp :- :cmp yy.wavelength yy.wavelength .* yy.mean_flux            ./ Dierckx.Spline1D(yy.wavelength , yy.mean_flux           , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (arith)'"
 @gp :- :cmp yy.wavelength yy.wavelength .* yy.geo_flux             ./ Dierckx.Spline1D(yy.wavelength , yy.geo_flux            , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (geom)'"
 @gp :- :cmp ss.wavelength                  ss.specMean             ./ Dierckx.Spline1D(ss.wavelength , ss.specMean            , k=1, bc="error")(refwl)          "w l t 'Salvatore'"
@@ -392,7 +390,7 @@ end
 
 # Prepare spectrum
 i = findall(cc.nn .>= 2);
-xx = cc.domain[i]
+xx = domain(cc)[i]
 yy = 10 .^cc.geom_composite[i] .* 1e-17
 ee = 10 .^cc.geom_scatter[i] ./ sqrt.(cc.nn[i]) .* 1e-17
 spec = Spectrum(xx, yy, ee, resolution=1000.)
