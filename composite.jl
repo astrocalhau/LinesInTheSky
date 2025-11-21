@@ -74,14 +74,13 @@ function composite_variance_func(bins::Vector{LinCompositeBin})
     @assert all(nn.(bins) .>= 2)
 
     prog = ProgressUnknown(desc="evaluations:", dt=1.5, showspeed=true, color=:light_black)
-    shared = (bins=bins, output=fill(0., length(bins)))
+    shared = (bins=LogCompositeBin.(bins), output=fill(0., length(bins)))
     funct = let prog=prog, shared=shared
-        logparams::Vector{Float64} -> begin
-            params = 10 .^logparams
+        params::Vector{Float64} -> begin
             ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
             for j in 1:length(shared.bins)
-                apply_absscale!(shared.bins[j], params)
-                shared.output[j] = std(shared.bins[j], geom=true)
+                apply_scale!(shared.bins[j], params)
+                shared.output[j] = std(shared.bins[j])
             end
             return shared.output
         end
@@ -175,6 +174,7 @@ struct Composite
         bins = bins[i]
 
         if fit
+            save_scaled_as_ref!.(bins)
             scatter = std.(bins)
             @info "Before:" sum(scatter.^2)
             @gp :aa hist(scatter)
@@ -186,7 +186,7 @@ struct Composite
             config.covtol = 1.e-1
 
             prog, shared, funct = composite_variance_func(bins)
-            bestfit = CMPFit.cmpfit(funct, log10.(getscales(bins)), config=config)
+            bestfit = CMPFit.cmpfit(funct, fill(0., length(specs)), config=config)
             println("\nAAA ", bestfit.elapsed, " ", bestfit.orignorm, " ", bestfit.bestnorm)
 
             apply_absscale!.(bins, 10 .^(bestfit.param))
@@ -200,6 +200,7 @@ struct Composite
         # Global scaling
         save_scaled_as_ref!.(bins)
         apply_scale!.(bins, Ref(fill(1 / mean(mean.(bins)), length(specs))))
+        save_scaled_as_ref!.(bins)
 
         if plot
             data = Dict(:redshift => Float64[],
