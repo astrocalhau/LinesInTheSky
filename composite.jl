@@ -15,40 +15,34 @@ end
 struct CompositeBin
     wavelength::Float64
     ispec::Vector{Int64}
-    spec::Vector{Float64}
-    scale::Vector{Float64}
+    resampled::Vector{Float64}
     scaled::Vector{Float64}
 
-    CompositeBin(l::Float64) = new(l, Vector{Int64}(), Vector{Float64}(), Vector{Float64}(), Vector{Float64}())
+    CompositeBin(l::Float64) = new(l, Vector{Int64}(), Vector{Float64}(), Vector{Float64}())
 end
 
-function add_spec!(bin::CompositeBin, ispec::Int64, spec::Float64)
-    @assert !isnan(spec)
+function add_spec!(bin::CompositeBin, ispec::Int64, resampled::Float64)
+    @assert !isnan(resampled)
     push!(bin.ispec, ispec)
-    push!(bin.spec , spec)
-    push!(bin.scale , 1.)
-    push!(bin.scaled, spec)
+    push!(bin.resampled, resampled)
+    push!(bin.scaled, resampled)
 end
 
 function apply_absscale!(bin::CompositeBin, scale::Vector{Float64})
-    bin.scale  .= scale[bin.ispec]
-    bin.scaled .= bin.spec .* bin.scale
+    bin.scaled .= bin.resampled .* scale[bin.ispec]
 end
 
 function apply_relscale!(bin::CompositeBin, scale::Vector{Float64})
-    bin.scale  .*= scale[bin.ispec]
     bin.scaled .*= scale[bin.ispec]
 end
 
 function apply_absscale!(bin::CompositeBin, ispec::Int, scale::Float64)
     i = findfirst(bin.ispec .== ispec)
-    bin.scale[i]  = scale
-    bin.scaled[i] = bin.spec[i] * bin.scale[i]
+    bin.scaled[i] = bin.resampled[i] * scale
 end
 
 function apply_relscale!(bin::CompositeBin, ispec::Int, scale::Float64)
     i = findfirst(bin.ispec .== ispec)
-    bin.scale[i]  *= scale
     bin.scaled[i] *= scale
 end
 
@@ -67,7 +61,7 @@ end
 function getscales(bins::Vector{CompositeBin})
     out = fill(0., maximum(maximum(getfield.(bins, :ispec))))
     for bin in bins
-        out[bin.ispec] .= bin.scale
+        out[bin.ispec] .= (bin.scaled ./ bin.resampled)
     end
     return out
 end
@@ -82,12 +76,15 @@ function composite_variance_func(bins::Vector{CompositeBin})
     @assert all(nn.(bins) .>= 2)
 
     prog = ProgressUnknown(desc="evaluations:", dt=1.5, showspeed=true, color=:light_black)
-    shared = (bins=bins, output=fill(NaN, length(bins)))
+    shared = (bins=bins, output=fill(0., length(bins)))
     funct = let prog=prog, shared=shared
         logparams::Vector{Float64} -> begin
+            params = 10 .^logparams
             ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
-            apply_absscale!.(shared.bins, Ref(10 .^logparams))
-            shared.output .= std.(shared.bins, geom=true)
+            for j in 1:length(shared.bins)
+                apply_absscale!(shared.bins[j], params)
+                shared.output[j] = std(shared.bins[j], geom=true)
+            end
             return shared.output
         end
     end
