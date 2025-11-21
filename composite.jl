@@ -244,56 +244,61 @@ nn(    cc::Composite)         =  nn.(   cc.bins)
 
 
 function plot(specs::Vector{SingleSpec}, cc::Composite)
-    xr = [extrema(cc.domain)...]
+    dom = domain(cc)
+    xr = [extrema(dom)...]
     @gp "set grid" "set autoscale noextend" :-
     @gp :- xlog=true xr=xr "set multiplot layout 3,1" "unset colorbox" xlab="" lma=0.06  rma=0.96 :-
 
     z = getfield.(specs, :z)
     h = hist(z)
     zbins = range([extrema(z)...]..., 200)
-    xx = fill(NaN,  length(cc.domain) * length(zbins))
-    yy = fill(NaN,  length(cc.domain) * length(zbins))
-    zz = fill(NaN, (length(cc.domain),  length(zbins)))
+    xx = fill(NaN,  length(dom) * length(zbins))
+    yy = fill(NaN,  length(dom) * length(zbins))
+    zz = fill(NaN, (length(dom),  length(zbins)))
     for i in 1:length(zbins)
-        i1 = argmin(abs.(12000 / (zbins[i] + 1) .- cc.domain))
-        i2 = argmin(abs.(18000 / (zbins[i] + 1) .- cc.domain))
+        i1 = argmin(abs.(12000 / (zbins[i] + 1) .- dom))
+        i2 = argmin(abs.(18000 / (zbins[i] + 1) .- dom))
         zz[i1:i2, i] .= Dierckx.Spline1D(hist_bins(h), hist_weights(h), k=1, bc="error")(zbins[i])
-        xx[((i-1) * length(cc.domain) + 1):(i * length(cc.domain))] .= cc.domain
-        yy[((i-1) * length(cc.domain) + 1):(i * length(cc.domain))] .= zbins[i]
+        xx[((i-1) * length(dom) + 1):(i * length(dom))] .= dom
+        yy[((i-1) * length(dom) + 1):(i * length(dom))] .= zbins[i]
     end
     @gp :- 1 ylab="Redshift"         "set xtics format ''"       bma=0.78  tma=0.98 yr=extrema(z) ylog=false :-
     @gp :- 1 "set y2tics"            "set ytics nomirror" :-
-    @gp :- 1 xx yy zz[:]                                                      "w p            notit                         lc palette pt 4 ps 0.25"  :-
-    @gp :- 1 cc.domain cc.nn                                                  "w l            t 'N. spectra'           lw 3 lc rgb 'black' axes x1y2" :-
+    @gp :- 1 xx yy zz[:]                                                 "w p            notit                         lc palette pt 4 ps 0.25"  :-
+    @gp :- 1 dom nn(cc)                                                  "w l            t 'N. spectra'           lw 3 lc rgb 'black' axes x1y2" :-
+
+    acomp = mean(cc)
+    sacomp = std(cc)
+    gcomp = mean(cc, geom=true)
+    sgcomp = std(cc, geom=true)
 
     @gp :- 2 "set y2label ''"        "set ytics mirror"       "set style fill transparent solid 0.5" :-
-    @gp :- 2 ylab="Lum [arb. units]" "set xtics format ''"       bma=0.42  tma=0.77 yr=extrema(cc.composite) ylog=true :-
-    @gp :- 2 cc.domain 10 .^cc.geom_composite                                 "w l            t 'Geometric composite'  lw 1 lc rgb 'red' dt 3"  :-
-    @gp :- 2 cc.domain cc.composite .- cc.scatter cc.composite .+ cc.scatter  "w filledcurves t 'Arithmetic scatter'        lc rgb 'gray'" :-
-    @gp :- 2 cc.domain cc.composite                                           "w l            t 'Arithmetic composite' lw 1 lc rgb 'blue'" :-
+    @gp :- 2 ylab="Lum [arb. units]" "set xtics format ''"       bma=0.42  tma=0.77 yr=extrema(acomp) ylog=true :-
+    @gp :- 2 dom 10 .^gcomp                       "w l            t 'Geometric composite'  lw 1 lc rgb 'red' dt 3"  :-
+    @gp :- 2 dom acomp .- sacomp acomp .+ sacomp  "w filledcurves t 'Arithmetic scatter'        lc rgb 'gray'" :-
+    @gp :- 2 dom acomp                                           "w l            t 'Arithmetic composite' lw 1 lc rgb 'blue'" :-
 
     @gp :- 3 xlab="Wavelength [A]"   "set xtics format '% h'" "set style fill transparent solid 0.5"  :-
-    @gp :- 3 ylab="log. Lum [arb. units]"                        bma=0.06  tma=0.41 yr=extrema(cc.geom_composite) ylog=false :-
-    @gp :- 3 cc.domain log10.(cc.composite)                                   "w l            t 'Arithmetic composite' lw 1 lc rgb 'blue' dt 3" :-
-    @gp :- 3 cc.domain cc.geom_composite .- cc.geom_scatter cc.geom_composite .+ cc.geom_scatter  "w filledcurves t 'Geometric scatter' lc rgb 'gray'" :-
-    @gp :- 3 cc.domain cc.geom_composite                                      "w l            t 'Geometric composite'  lw 1 lc rgb 'red'"  :-
+    @gp :- 3 ylab="log. Lum [arb. units]"                        bma=0.06  tma=0.41 yr=extrema(gcomp) ylog=false :-
+    @gp :- 3 dom log10.(acomp)                    "w l            t 'Arithmetic composite' lw 1 lc rgb 'blue' dt 3" :-
+    @gp :- 3 dom gcomp .- sgcomp gcomp .+ sgcomp  "w filledcurves t 'Geometric scatter' lc rgb 'gray'" :-
+    @gp :- 3 dom gcomp                            "w l            t 'Geometric composite'  lw 1 lc rgb 'red'"  :-
 
     cont_x0    = 3000
     cont_norm  = 0.28
-    cont_slope = -1.65
+    cont_slope = -1.7
     xx = range(xr..., 100)
     @gp :- 3 xx cont_norm .+ cont_slope .* log10.(xx ./ cont_x0) "w l t 'Slope=$(cont_slope)' lw 3 dt 2" :-
 
     cont_x0    = 6000
-    cont_norm  = -0.18
-    cont_slope = -1.05
+    cont_norm  = -0.2
+    cont_slope = -1.0
     xx = range(xr..., 100)
     @gp :- 3 xx cont_norm .+ cont_slope .* log10.(xx ./ cont_x0) "w l t 'Slope=$(cont_slope)' lw 3 dt 2"
 end
 
 
 # ====================================================================
-aaa()
 serialize_filename = "composite.ser"
 if !isfile(serialize_filename)
     input_path  = "input/input_Euclid"
@@ -330,7 +335,6 @@ end
 
 
 # ====================================================================
-aaa()
 
 
 yy = CSV.read("/home/gcalderone/tmp/Yuming/q1_qsocomp_spec_constant_r500_20251114.csv", DataFrame)
@@ -351,8 +355,9 @@ refwl = 5600.
 @gp :- :cmp ss.wavelength                  ss.specMean             ./ Dierckx.Spline1D(ss.wavelength , ss.specMean            , k=1, bc="error")(refwl)          "w l t 'Salvatore'"
 @gp :- :cmp bb[:, 1]                       bb[:, 2]                ./ Dierckx.Spline1D(     bb[:, 1] , bb[:, 2]               , k=1, bc="error")(refwl)          "w l t 'Beta'"
 
-
 plot(specs, cc)
+aaa()
+
 
 # Analysis with dedicated recipe
 abstract type EuclidComposite <: QSFit.QSORecipes.Type1 end
