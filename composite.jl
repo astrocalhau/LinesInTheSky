@@ -346,14 +346,14 @@ ss = ss[findall(isfinite.(ss.specMean)), :]
 
 refwl = 5600.
 @gp    :cmp "set grid" xlabel="Wavelength [A] (rest frame)" ylabel="{/Symbol l} L_{/Symbol l} (arb.units)" xlog=true ylog=true :-
-@gp :- :cmp  domain(cc)    domain(cc)     .*       mean(cc)            ./ Dierckx.Spline1D( domain(cc)  ,  mean(cc)                , k=1, bc="error")(refwl) ./ refwl "w l t 'arith'"
-@gp :- :cmp domain(rcc)    domain(rcc)    .*      mean(rcc)            ./ Dierckx.Spline1D(domain(rcc)  , mean(rcc)                , k=1, bc="error")(refwl) ./ refwl "w l t 'arith rev'"
+@gp :- :cmp  domain(cc)    domain(cc)     .*       mean(cc)            ./ Dierckx.Spline1D( domain(cc)  ,      mean(cc)            , k=1, bc="error")(refwl) ./ refwl "w l t 'arith'"
+@gp :- :cmp domain(rcc)    domain(rcc)    .*      mean(rcc)            ./ Dierckx.Spline1D(domain(rcc)  ,      mean(rcc)           , k=1, bc="error")(refwl) ./ refwl "w l t 'arith rev'"
 @gp :- :cmp  domain(cc)    domain(cc)     .* 10 .^ mean(cc, geom=true) ./ Dierckx.Spline1D( domain(cc)  , 10 .^ mean(cc, geom=true), k=1, bc="error")(refwl) ./ refwl "w l t 'geom'"
 @gp :- :cmp domain(rcc)    domain(rcc)    .* 10 .^mean(rcc, geom=true) ./ Dierckx.Spline1D(domain(rcc)  , 10 .^mean(rcc, geom=true), k=1, bc="error")(refwl) ./ refwl "w l t 'geom rev'"
-@gp :- :cmp yy.wavelength yy.wavelength .* yy.mean_flux                ./ Dierckx.Spline1D(yy.wavelength, yy.mean_flux             , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (arith)'"
-@gp :- :cmp yy.wavelength yy.wavelength .* yy.geo_flux                 ./ Dierckx.Spline1D(yy.wavelength, yy.geo_flux              , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (geom)'"
-@gp :- :cmp ss.wavelength                  ss.specMean                 ./ Dierckx.Spline1D(ss.wavelength, ss.specMean              , k=1, bc="error")(refwl)          "w l t 'Salvatore'"
-@gp :- :cmp bb[:, 1]                       bb[:, 2]                    ./ Dierckx.Spline1D(     bb[:, 1], bb[:, 2]                 , k=1, bc="error")(refwl)          "w l t 'Beta'"
+@gp :- :cmp yy.wavelength yy.wavelength   .* yy.mean_flux              ./ Dierckx.Spline1D(yy.wavelength, yy.mean_flux             , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (arith)'"
+@gp :- :cmp yy.wavelength yy.wavelength   .* yy.geo_flux               ./ Dierckx.Spline1D(yy.wavelength, yy.geo_flux              , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (geom)'"
+@gp :- :cmp ss.wavelength                    ss.specMean               ./ Dierckx.Spline1D(ss.wavelength, ss.specMean              , k=1, bc="error")(refwl)          "w l t 'Salvatore'"
+@gp :- :cmp bb[:, 1]                         bb[:, 2]                  ./ Dierckx.Spline1D(     bb[:, 1], bb[:, 2]                 , k=1, bc="error")(refwl)          "w l t 'Beta'"
 
 plot(specs, cc)
 aaa()
