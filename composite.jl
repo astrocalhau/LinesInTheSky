@@ -177,11 +177,9 @@ struct Composite
             end
         end
 
-        if !isnothing(refwl)
-            i = findall(.!isnan.(mean.(bins)))
-            domain = domain[i]
-            bins = bins[i]
-        end
+        i = findall(nn.(bins) .> 2)
+        domain = domain[i]
+        bins = bins[i]
 
         if fit
             scatter = std.(bins)
