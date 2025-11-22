@@ -164,11 +164,8 @@ struct Composite
             # Resample spectrum
             Y = usemodel  ?  spec.m  :  spec.y
             v = Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(domain[j])
-            for i in 1:length(j)
-                add_spec!(bins[j[i]], ispec, v[i])
-            end
 
-            # Scale spectrum
+            # Calculate scale for the spectrum (before adding it!)
             if renorm
                 if !isnothing(refwl)
                     scale = 1 / Dierckx.Spline1D(spec.x, Y, k=1, bc="error")(refwl)
@@ -179,12 +176,19 @@ struct Composite
                         scale = 1 / mean(Y)
                     else
                         tmp = mean.(bins[j])
-                        scale = mean(tmp) / mean(Y)
+                        i = findall(.!isnan.(tmp))
+                        scale = mean(tmp[i]) / mean(v[i])
                     end
                 end
-
-                apply_scale!.(bins[j], scale, ispec)
+            else
+                scale = 1.0
             end
+
+            # Add spectrum and scale it
+            for i in 1:length(j)
+                add_spec!(bins[j[i]], ispec, v[i])
+            end
+            apply_scale!.(bins[j], scale, ispec)
         end
 
         i = findall(nn.(bins) .> 2)
@@ -377,9 +381,13 @@ if !isfile(serialize_filename)
 
     cc  = Composite(specs, R=2700)
     rcc = Composite(specs, R=2700, rev=true)
-    serialize(serialize_filename, (specs, cc, rcc))
+    ff  = Composite(specs, R=2700, plot=true, equal=true)
+    minimize_scatter!(ff)
+    FF  = Composite(specs, R=2700, plot=true, renorm=false)
+    minimize_scatter!(ff)
+    serialize(serialize_filename, (specs, cc, rcc, ff))
 else
-    specs, cc, rcc = deserialize(serialize_filename)
+    specs, cc, rcc, ff, FF = deserialize(serialize_filename)
 end
 
 
@@ -387,9 +395,7 @@ end
 aaa()
 
 
-ff  = Composite(specs, R=2700, plot=true, equal=true)
 @gp domain(cc) domain(cc) .* mean(cc) "w l" xlog=true ylog=true domain(rcc) domain(rcc) .* mean(rcc) "w l" domain(ff) domain(ff) .* mean(ff) "w l"
-minimize_scatter!(ff)
 
 
 yy = CSV.read("/home/gcalderone/tmp/Yuming/q1_qsocomp_spec_constant_r500_20251114.csv", DataFrame)
