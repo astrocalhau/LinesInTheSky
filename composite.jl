@@ -176,7 +176,8 @@ struct Composite
                         scale = 1 / mean(Y)
                     else
                         tmp = mean.(bins[j])
-                        i = findall(.!isnan.(tmp))
+                        @assert length(tmp) == length(v)
+                        i = findall(.!isnan.(tmp))  # there may be NaNs due to a wavelength being sampled only by the current spectrum
                         scale = mean(tmp[i]) / mean(v[i])
                     end
                 end
@@ -384,7 +385,7 @@ if !isfile(serialize_filename)
     ff  = Composite(specs, R=2700, plot=true, equal=true)
     minimize_scatter!(ff)
     # FF  = Composite(specs, R=2700, plot=true, renorm=false)
-    # minimize_scatter!(ff)
+    # minimize_scatter!(ff)  # this takes more than 4 hours...
     serialize(serialize_filename, (specs, cc, rcc, ff))
 else
     specs, cc, rcc, ff = deserialize(serialize_filename)
