@@ -339,13 +339,13 @@ function plot(specs::Vector{SingleSpec}, cc::Composite)
 
     cont_x0    = 3000
     cont_norm  = 0.28
-    cont_slope = -1.7
+    cont_slope = -1.6
     xx = range(xr..., 100)
     @gp :- 3 xx cont_norm .+ cont_slope .* log10.(xx ./ cont_x0) "w l t 'Slope=$(cont_slope)' lw 3 dt 2" :-
 
     cont_x0    = 6000
-    cont_norm  = -0.2
-    cont_slope = -1.0
+    cont_norm  = -0.18
+    cont_slope = -0.9
     xx = range(xr..., 100)
     @gp :- 3 xx cont_norm .+ cont_slope .* log10.(xx ./ cont_x0) "w l t 'Slope=$(cont_slope)' lw 3 dt 2"
 end
@@ -383,11 +383,11 @@ if !isfile(serialize_filename)
     rcc = Composite(specs, R=2700, rev=true)
     ff  = Composite(specs, R=2700, plot=true, equal=true)
     minimize_scatter!(ff)
-    FF  = Composite(specs, R=2700, plot=true, renorm=false)
-    minimize_scatter!(ff)
+    # FF  = Composite(specs, R=2700, plot=true, renorm=false)
+    # minimize_scatter!(ff)
     serialize(serialize_filename, (specs, cc, rcc, ff))
 else
-    specs, cc, rcc, ff, FF = deserialize(serialize_filename)
+    specs, cc, rcc, ff = deserialize(serialize_filename)
 end
 
 
@@ -395,7 +395,9 @@ end
 aaa()
 
 
-@gp domain(cc) domain(cc) .* mean(cc) "w l" xlog=true ylog=true domain(rcc) domain(rcc) .* mean(rcc) "w l" domain(ff) domain(ff) .* mean(ff) "w l"
+@gp xlog=true ylog=true  :-
+@gp :- domain(cc) domain(cc) .* mean(cc) "w l" domain(rcc) domain(rcc) .* mean(rcc) "w l" :-
+@gp :- domain(ff) domain(ff) .* mean(ff) "w l"#domain( FF) domain( FF) .* mean( FF) "w l"
 
 
 yy = CSV.read("/home/gcalderone/tmp/Yuming/q1_qsocomp_spec_constant_r500_20251114.csv", DataFrame)
@@ -454,10 +456,9 @@ function add_qso_continuum!(recipe::CRecipe{<: EuclidComposite}, fp::GModelFit.F
 end
 
 # Prepare spectrum
-i = findall(nn(cc) .>= 2);
-xx = domain(cc)[i]
-yy = 10 .^mean(cc, geom=true)[i] .* 1e-17
-ee = 10 .^std( cc, geom=true)[i] ./ sqrt.(nn(cc)[i]) .* 1e-17
+xx = domain(cc)
+yy = 10 .^geommean(cc) .* 1e-17
+ee = 10 .^geomstd( cc)[i] ./ sqrt.(nn(cc)) .* 1e-17
 spec = Spectrum(xx, yy, ee, resolution=1000.)
 
 recipe = CRecipe{EuclidComposite}()
