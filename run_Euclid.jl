@@ -78,49 +78,38 @@ function read_results(output_path, row)
 
     @info "Reading $filename ..."
     res = QSFit.deserialize(filename)
-    df =  DataFrame(ID=row.object_id, Redshift=row.Z, Source=row.CAT, redchisq=res.fsumm.fitstat,
-                    NPOINTS=res.fsumm.ndata, SNR=res.post[:Data_stats][:SNR], DER_SNR=res.post[:Data_stats][:DER_SNR], nneg=res.post[:Data_stats][:nneg],
-                    L3000=res.post[:Continuum_luminosity][:l3000],
-                    L5100=res.post[:Continuum_luminosity][:l5100])
+    out = OrderedDict(:ID => row.object_id,
+                      :Redshift => row.Z, :Source => row.CAT, :redchisq => res.fsumm.fitstat,
+                      :NPOINTS => res.fsumm.ndata, :SNR => res.post[:Data_stats][:SNR], :DER_SNR => res.post[:Data_stats][:DER_SNR], :nneg => res.post[:Data_stats][:nneg],
+                      :L3000 => res.post[:Continuum_luminosity][:l3000],
+                      :L5100 => res.post[:Continuum_luminosity][:l5100])
     for (cname, comp) in res.bestfit
         (cname in [:QSOcont, :Galaxy, :Ironuv, :Ironoptbr, :Ironoptna,
                    :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832_br,
                    :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
 
-        if !(string(cname) * "_reliable" in names(df))
-            df[!, Symbol(cname, :_reliable)] = missings(Int64, nrow(df))
-        end
-        df[end, Symbol(cname, :_reliable)] = ((cname in keys(res.post[:Issues]))  ?  0  :  1)
+        out[Symbol(cname, :_reliable)] = ((cname in keys(res.post[:Issues]))  ?  0  :  1)
         for (pname, par) in comp
             colname = Symbol(cname, :_, pname)
-            if !(string(colname) in names(df))
-                df[!,        colname        ] = missings(Float64, nrow(df))
-                df[!, Symbol(colname, :_unc)] = missings(Float64, nrow(df))
-            end
-
             if isnothing(par.patch)
-                df[end,        colname        ] = par.val
-                        df[end, Symbol(colname, :_unc)] = par.unc
-                    else
-                        df[end,        colname        ] = par.actual
-                        df[end, Symbol(colname, :_unc)] = NaN
-                    end
-                end
+                out[       colname        ] = par.val
+                out[Symbol(colname, :_unc)] = par.unc
+            else
+                out[       colname        ] = par.actual
+                out[Symbol(colname, :_unc)] = NaN
             end
+        end
+    end
 
-            for assoc in [:Ha_br_assoc, :Hb_br_assoc]
-                if assoc in keys(res.post)
-                    if !("$(assoc)_norm" in names(df))
-                        df[!, Symbol(assoc, :_norm)] = missings(Float64, nrow(df))
-                        df[!, Symbol(assoc, :_fwhm)] = missings(Float64, nrow(df))
-                        df[!, Symbol(assoc, :_voff)] = missings(Float64, nrow(df))
-                    end
-                    df[end, Symbol(assoc, :_norm)] = res.post[assoc][:norm]
-                    df[end, Symbol(assoc, :_fwhm)] = res.post[assoc][:fwhm]
-                    df[end, Symbol(assoc, :_voff)] = res.post[assoc][:voff]
-                end
-            end
-    return df
+    for assoc in [:Ha_br_assoc, :Hb_br_assoc]
+        if assoc in keys(res.post)
+            out[Symbol(assoc, :_norm)] = res.post[assoc][:norm]
+            out[Symbol(assoc, :_fwhm)] = res.post[assoc][:fwhm]
+            out[Symbol(assoc, :_voff)] = res.post[assoc][:voff]
+        end
+    end
+
+    return DataFrame(out)
 end
 
 include("common_functs.jl")

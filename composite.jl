@@ -459,7 +459,7 @@ end
 # Prepare spectrum
 xx = domain(cc)
 yy = 10 .^geommean(cc) .* 1e-17
-ee = 10 .^geomstd( cc)[i] ./ sqrt.(nn(cc)) .* 1e-17
+ee = 10 .^geomstd( cc) ./ sqrt.(nn(cc)) .* 1e-17
 spec = Spectrum(xx, yy, ee, resolution=1000.)
 
 recipe = CRecipe{EuclidComposite}()
