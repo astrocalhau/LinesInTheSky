@@ -49,8 +49,12 @@ function read_results(output_path, row)
                    :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832_br,
                    :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
 
-        out[Symbol(cname, :_reliable)] = ((cname in keys(res.post[:Issues]))  ?  0  :  1)
-        for (pname, par) in comp
+
+        out[Symbol(cname, :_reliable)] = !(cname in keys(res.post[:Issues])  &&
+            ((:norm in keys(res.post[:Issues][cname]))  ||
+             (:fwhm in keys(res.post[:Issues][cname])))
+                                           )
+        for (pname, par) in GModelFit.getparams(comp)
             colname = Symbol(cname, :_, pname)
             if isnothing(par.patch)
                 out[       colname        ] = par.val
