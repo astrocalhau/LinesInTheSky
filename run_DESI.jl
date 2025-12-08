@@ -49,11 +49,9 @@ function read_results(output_path, row)
                    :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832_br,
                    :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
 
-
-        out[Symbol(cname, :_reliable)] = !(cname in keys(res.post[:Issues])  &&
+        out[Symbol(cname, :_reliable)] = Int.(!(cname in keys(res.post[:Issues])  &&
             ((:norm in keys(res.post[:Issues][cname]))  ||
-             (:fwhm in keys(res.post[:Issues][cname])))
-                                           )
+                                                (:fwhm in keys(res.post[:Issues][cname])))))
         for (pname, par) in GModelFit.getparams(comp)
             colname = Symbol(cname, :_, pname)
             if isnothing(par.patch)
@@ -99,9 +97,9 @@ function calculate_additional_columns!(results)
     add_Lbol_eddratio!(results)
 
     # Creates Quality cut columns
-    results[!, :good] = ((results.NPOINTS .> 6000)                   .&
-                         (results.nneg ./ results.NPOINTS .< 0.1)    .&
-                         (results.DER_SNR .> 3))
+    results[!, :good] = Int.((results.NPOINTS .> 6000)                   .&
+                             (results.nneg ./ results.NPOINTS .< 0.1)    .&
+                             (results.DER_SNR .> 3))
 end
 
 
