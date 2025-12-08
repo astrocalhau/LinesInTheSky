@@ -1,7 +1,28 @@
-using Revise, FITSIO, DataFrames, Gnuplot, Dierckx, ProgressMeter, Statistics, StatsBase, Serialization, CSV
+using Revise, FITSIO, DataFrames, Gnuplot, Dierckx, ProgressMeter, Statistics, StatsBase, Serialization, CSV, DataStructures
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer, CMPFit
 
 Gnuplot.options.term = "qt size 1600,900 enhanced font 'Latin Modern Roman, 13' lw 1.5"
+
+function write_fits(filename, results)
+    data = OrderedDict{String, Vector}()
+    for cname in names(results)
+        col = results[:, cname]
+        typ = nonmissingtype(eltype(col))
+        if typ <: AbstractFloat
+            data[cname] = replace(col, missing => NaN)
+        elseif typ <: Integer
+            data[cname] = replace(col, missing => -1)
+        elseif typ <: String
+            data[cname] = replace(col, missing => "")
+        else
+            error("Unsupported data type: $(typ)")
+        end
+    end
+    f = FITS(filename, "w")
+    write(f, data)
+    close(f)
+end
+
 
 # ====================================================================
 struct SingleSpec
@@ -293,15 +314,20 @@ if !isfile(serialize_filename)
     rcc = Composite(specs, R=2700, rev=true)
     ff  = Composite(specs, R=2700, plot=true, equal=true)
     serialize(serialize_filename, (specs, cc, rcc, ff))
+
+    write_fits("composite_data/Euclid_composite_arit.fits", DataFrame(lambda=domain(cc), flux=mean(cc), std=std(cc), nn=nn(cc)))
+    write_fits("composite_data/Euclid_composite_geom.fits", DataFrame(lambda=domain(cc), flux=geommean(cc), std=geomstd(cc), nn=nn(cc)))
 else
     specs, cc, rcc, ff = deserialize(serialize_filename)
 end
 
 
 # ====================================================================
-@gp xlog=true ylog=true  :-
+aaa()
+
+gp xlog=true ylog=true  :-
 @gp :- domain(cc) domain(cc) .* mean(cc) "w l" domain(rcc) domain(rcc) .* mean(rcc) "w l" :-
-@gp :- domain(ff) domain(ff) .* mean(ff) "w l"#domain( FF) domain( FF) .* mean( FF) "w l"
+@gp :- domain(ff) domain(ff) .* mean(ff) "w l"
 
 
 yy = CSV.read("composite_data/Yuming/q1_qsocomp_spec_constant_r500_20251114.csv", DataFrame)
