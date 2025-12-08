@@ -68,43 +68,6 @@ function getscaled(bins::Vector{T}, ispec::Int) where T <: AbstractCompositeBin
 end
 
 
-function composite_variance_func(bins::Vector{LinCompositeBin}, Nspec)
-    @assert all(nn.(bins) .>= 2)
-
-    mm = [Vector{NTuple{2, Int}}() for i in 1:Nspec]
-    for j in 1:length(bins)
-        i = 1
-        for ispec in bins[j].ispec
-            push!(mm[ispec], (i, j))
-            i += 1
-        end
-    end
-
-    prog = ProgressUnknown(desc="evaluations:", dt=1.5, showspeed=true, color=:light_black)
-    shared = (bins=LogCompositeBin.(bins), prevpars=fill(0., Nspec), Nspec=Nspec, mm=mm, output=fill(0., length(bins)))
-    funct = let prog=prog, shared=shared
-        params::Vector{Float64} -> begin
-            ProgressMeter.next!(prog; showvalues=() -> [(:variance, sum(shared.output .^2))])
-            # for j in 1:length(shared.bins)
-            #     apply_scale!(shared.bins[j], params)
-            #     shared.output[j] = std(shared.bins[j])
-            # end
-            for ispec in 1:shared.Nspec
-                if shared.prevpars[ispec] != params[ispec]
-                    for (i, j) in mm[ispec]
-                        shared.bins[j].scaled[i] = shared.bins[j].ref[i] + params[ispec]
-                    end
-                    shared.prevpars[ispec] = params[ispec]
-                end
-            end
-            shared.output .= std.(shared.bins)
-            return shared.output
-        end
-    end
-    return prog, shared, funct
-end
-
-
 struct Composite
     R::Union{Nothing, Float64}
     dl::Union{Nothing, Float64}
@@ -242,60 +205,6 @@ nn(      cc::Composite) =  nn.(      cc.bins)
 geommean(cc::Composite) =  mean.(LogCompositeBin.(cc.bins))
 geomstd( cc::Composite) =  std.( LogCompositeBin.(cc.bins))
 
-function minimize_scatter!(cc::Composite)
-    fitstat(v) = sum(v .^ 2)
-
-    @assert all(nn(cc) .>= 2)
-    save_scaled_as_ref!.(cc.bins)
-    bins = LogCompositeBin.(cc.bins)
-
-    v = std.(bins)
-    histrange = [extrema(v)...]
-    h = hist(v, range=histrange, bs=0.01)
-    @gp :aa hist_bins(h) hist_weights(h) "w steps t 'Before $(fitstat(v))' lw 3"
-
-    mm = [Vector{NTuple{2, Int}}() for i in 1:cc.Nspec]
-    for j in 1:length(bins)
-        i = 1
-        for ispec in bins[j].ispec
-            push!(mm[ispec], (i, j))
-            i += 1
-        end
-    end
-
-    prog = ProgressUnknown(desc="evaluations:", dt=1.5, showspeed=true, color=:light_black)
-    shared = (bins=bins, prevpars=fill(0., cc.Nspec), Nspec=cc.Nspec, mm=mm, output=fill(0., length(bins)))
-    funct = let prog=prog, shared=shared
-        params::Vector{Float64} -> begin
-            ProgressMeter.next!(prog; showvalues=() -> [(:fitstat, fitstat(shared.output))])
-            for ispec in 1:shared.Nspec
-                if shared.prevpars[ispec] != params[ispec]
-                    for (i, j) in mm[ispec]
-                        shared.bins[j].scaled[i] = shared.bins[j].ref[i] + params[ispec]
-                    end
-                    shared.prevpars[ispec] = params[ispec]
-                end
-            end
-            shared.output .= std.(shared.bins)
-            return shared.output
-        end
-    end
-
-    config = CMPFit.Config()
-    config.ftol   = 1.e-3
-    config.xtol   = 1.e-3
-    config.gtol   = 1.e-3
-    config.covtol = 1.e-3
-
-    bestfit = CMPFit.cmpfit(funct, fill(0., cc.Nspec), config=config)
-    @info bestfit.elapsed bestfit.orignorm bestfit.bestnorm
-    apply_scale!.(cc.bins, Ref(10 .^(bestfit.param)))
-
-    v = std.(bins)
-    h = hist(v, range=histrange, bs=0.01)
-    @gp :- :aa hist_bins(h) hist_weights(h) "w steps t 'After $(fitstat(v))' lw 3"
-end
-
 
 function plot(specs::Vector{SingleSpec}, cc::Composite)
     dom = domain(cc)
@@ -353,7 +262,7 @@ end
 
 
 # ====================================================================
-serialize_filename = "composite.ser"
+serialize_filename = "composite_data/composite.ser"
 if !isfile(serialize_filename)
     input_path  = "input/input_Euclid"
     output_path = "results_Euclid"
@@ -383,9 +292,6 @@ if !isfile(serialize_filename)
     cc  = Composite(specs, R=2700)
     rcc = Composite(specs, R=2700, rev=true)
     ff  = Composite(specs, R=2700, plot=true, equal=true)
-    minimize_scatter!(ff)
-    # FF  = Composite(specs, R=2700, plot=true, renorm=false)
-    # minimize_scatter!(ff)  # this takes more than 4 hours...
     serialize(serialize_filename, (specs, cc, rcc, ff))
 else
     specs, cc, rcc, ff = deserialize(serialize_filename)
@@ -393,17 +299,16 @@ end
 
 
 # ====================================================================
-aaa()
-
-
 @gp xlog=true ylog=true  :-
 @gp :- domain(cc) domain(cc) .* mean(cc) "w l" domain(rcc) domain(rcc) .* mean(rcc) "w l" :-
 @gp :- domain(ff) domain(ff) .* mean(ff) "w l"#domain( FF) domain( FF) .* mean( FF) "w l"
 
 
-yy = CSV.read("/home/gcalderone/tmp/Yuming/q1_qsocomp_spec_constant_r500_20251114.csv", DataFrame)
-bb = CSV.read("/home/gcalderone/tmp/Yuming/sdss_all_mean_hostcorr.dat", DataFrame);
-f = FITS("/home/gcalderone/tmp/Yuming/Salvatore_composite_median_flux_normalization.fits")
+yy = CSV.read("composite_data/Yuming/q1_qsocomp_spec_constant_r500_20251114.csv", DataFrame)
+bb = CSV.read("composite_data/Lusso24/type1-hostcorr/sdss_all_mean_hostcorr.dat", delim=" ", ignorerepeated=true, DataFrame);
+b2 = CSV.read("composite_data/Lusso24/type1/stack_sdssnir_all.dat", delim=" ", ignorerepeated=true, DataFrame);
+b2[:, 2] .*= b2[:, 1]
+f = FITS("composite_data/Salvatore_composite_median_flux_normalization.fits")
 ss = DataFrame(f[2])
 close(f)
 ss = ss[findall(isfinite.(ss.specMean)), :]
@@ -418,6 +323,7 @@ refwl = 5600.
 @gp :- :cmp yy.wavelength yy.wavelength   .* yy.geo_flux        ./ Dierckx.Spline1D(yy.wavelength, yy.geo_flux       , k=1, bc="error")(refwl) ./ refwl "w l t 'Yuming (geom)'"
 @gp :- :cmp ss.wavelength                    ss.specMean        ./ Dierckx.Spline1D(ss.wavelength, ss.specMean       , k=1, bc="error")(refwl)          "w l t 'Salvatore'"
 @gp :- :cmp bb[:, 1]                         bb[:, 2]           ./ Dierckx.Spline1D(     bb[:, 1], bb[:, 2]          , k=1, bc="error")(refwl)          "w l t 'Beta'"
+@gp :- :cmp b2[:, 1]                         b2[:, 2]           ./ Dierckx.Spline1D(     b2[:, 1], b2[:, 2]          , k=1, bc="error")(refwl)          "w l t 'Beta (No host corr.)'"
 
 plot(specs, cc)
 
