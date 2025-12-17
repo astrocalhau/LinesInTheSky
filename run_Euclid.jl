@@ -62,10 +62,20 @@ function analyze_spec(input_path, output_path, row; clob=false)
     recipe.use_host_template = true
     resWithHost = analyze(recipe, spec)
 
-    if resNoHost.fsumm.fitstat < resWithHost.fsumm.fitstat
-        res = resNoHost
-    else
-        res = resWithHost
+
+    if !(:QSOcont in keys(resNoHost.post[:Issues]))  &&
+       !(:QSOcont in keys(resWithHost.post[:Issues]))
+        if resNoHost.fsumm.fitstat < resWithHost.fsumm.fitstat
+            res = resNoHost
+        else
+            res = resWithHost
+        end
+    else # simply pick the one with no QSOcont issues
+        if !(:QSOcont in keys(resNoHost.post[:Issues]))
+            res = resNoHost
+        else
+            res = resWithHost
+        end
     end
 
     QSFit.serialize(output_filename, res, compress=true)
