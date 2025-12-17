@@ -325,7 +325,22 @@ end
 # ====================================================================
 aaa()
 
-gp xlog=true ylog=true  :-
+ref = Composite(specs, R=5000)
+yref = domain(ref) .* mean(ref)
+xx = Float64[]
+yy = Float64[]
+for R in 500:250:ref.R
+    (R == ref.R)  &&  break
+    @info R
+    tmp = Composite(specs, R=R)
+    y = domain(ref) .* Dierckx.Spline1D(domain(tmp), mean(tmp), k=1)(domain(ref))
+    push!(xx, R)
+    push!(yy, mad((yref .- y) ./ yref))
+end
+@gp "set grid" xlab="Sampling resolution" ylab="MAD w.r.t R=$(ref.R)" xx yy "w lp notit ps 3"
+# Actual spectral resolution is ~3000
+
+@gp xlog=true ylog=true xr=extrema(domain(ref)) yr=0.005 .* [-1,1] :-
 @gp :- domain(cc) domain(cc) .* mean(cc) "w l" domain(rcc) domain(rcc) .* mean(rcc) "w l" :-
 @gp :- domain(ff) domain(ff) .* mean(ff) "w l"
 
