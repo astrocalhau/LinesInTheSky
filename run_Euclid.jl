@@ -156,7 +156,7 @@ end
 
 
 function run_Euclid()
-    input_path  = "input/input_Euclid"
+    input_path  = "input_Euclid"
     output_path = "results_Euclid"
 
     # Read input catalog

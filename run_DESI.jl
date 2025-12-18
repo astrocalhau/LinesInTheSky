@@ -105,7 +105,7 @@ end
 
 
 function run_DESI()
-    input_path  = "input/input_DESI"
+    input_path  = "input_DESI"
     output_path = "results_DESI"
 
     # Read input catalog
