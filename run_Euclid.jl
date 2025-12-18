@@ -89,7 +89,7 @@ function read_results(output_path, row)
     @info "Reading $filename ..."
     res = QSFit.deserialize(filename)
     out = OrderedDict(:ID => row.object_id,
-                      :Redshift => row.Z, :Source => row.CAT, :redchisq => res.fsumm.fitstat,
+                      :Redshift => row.Z, :Hmag => row.HMAG, :Ref_QUBRICS => row.ref_QUBRICS, :QUBRICS => row.QUBRICS, :DESI => row.DESI, :FU => row.FU, :redchisq => res.fsumm.fitstat,
                       :NPOINTS => res.fsumm.ndata, :SNR => res.post[:Data_stats][:SNR], :DER_SNR => res.post[:Data_stats][:DER_SNR], :nneg => res.post[:Data_stats][:nneg],
                       :L3000 => res.post[:Continuum_luminosity][:l3000],
                       :L5100 => res.post[:Continuum_luminosity][:l5100])
@@ -160,7 +160,7 @@ function run_Euclid()
     output_path = "results_Euclid"
 
     # Read input catalog
-    f = FITS("$(input_path)/catalog.fits")
+    f = FITS("$(input_path)/catalog_V2.fits")
     catalog = DataFrame(f[2])
     close(f)
 

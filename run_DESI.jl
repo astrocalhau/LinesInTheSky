@@ -99,6 +99,7 @@ function calculate_additional_columns!(results)
     # Creates Quality cut columns
     results[!, :good] = Int.((results.NPOINTS .> 6000)                   .&
                              (results.nneg ./ results.NPOINTS .< 0.1)    .&
+                             (results.redchisq .< 6)                     .&
                              (results.DER_SNR .> 3))
 end
 
