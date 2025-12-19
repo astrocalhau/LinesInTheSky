@@ -6,7 +6,10 @@ Paper: (TODO: add arXiv, ADS link)
 - Install Julia (https://julialang.org/downloads/);
 - Download and unzip the [code](https://github.com/astrocalhau/LinesInTheSky/archive/refs/heads/main.zip);
 
-- Download and untar [data](https://drive.google.com/file/d/1p-4CfG_O5aWJwiIBUAkyff2sg8mwAzRF/view?usp=drive_link) in the `LinesInTheSky` folder;
+- Download the [data](https://drive.google.com/file/d/1p-4CfG_O5aWJwiIBUAkyff2sg8mwAzRF/view?usp=drive_link) in the `LinesInTheSky` folder, then untar using the command:
+```
+tar xvf input.tar.gz
+```
 
 - In the `LinesInTheSky` folder start julia with the following command line:
 ```
