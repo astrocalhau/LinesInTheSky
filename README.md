@@ -34,6 +34,11 @@ include("run_DESI.jl")
 input_path, output_path, catalog, results = run_DESI()
 ```
 
-- The output catalog will be written in `results_<instrument>/QSFIT_RESULTS.fits` and individual output files will be located in `results_<instrument>/HTML`, where `instrument` is `Euclid` or `DESI` according to the choice made above.
+- The output catalog will be written in `results_<instrument>/QSFIT_RESULTS.fits` and individual output files will be located in `results_<instrument>/JSON`, where `instrument` is `Euclid` or `DESI` according to the choice made above.
+
+- To reproduce most of the plots in the paper, run the following command in the bash terminal. You must be in the LinesInTheSky folder.
+```
+julia --project=. -t auto Make_plots.jl
+```
 
 More information on the running of QSFit and the production of user-defined recipes can be found in QSFit's official [page](https://gcalderone.github.io/QSFit.jl/)
