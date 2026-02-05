@@ -38,6 +38,8 @@ qualcutmassHaHb = df[(df.good .== 1) .&& coalesce.(df.Ha_br_fwhm.>2000, false) .
 
 qualcutmassPab = df[(df.good .== 1) .&& coalesce.(df.Pab_br_fwhm.>2000, false) .&& coalesce.(df.Pab_br_fwhm.<15000, false) .&& coalesce(df.Pab_br_reliable .== 1, false), :] #quality cut for Pab-based BH masses
 
+qualcutmassHeI = df[(df.good .== 1) .&& coalesce.(df.HeI_10832_br_fwhm.>2000, false) .&& coalesce.(df.HeI_10832_br_fwhm.<15000, false) .&& coalesce(df.HeI_10832_br_reliable .== 1, false), :] #quality cut for HeI-based BH masses
+
 #############################################################################
 #############################################################################
 #############################################################################
@@ -77,7 +79,7 @@ savefig(red, "Figures/Figure9.pdf")
 # All three main BH mass histograms as subplots
 #################################################
 	#MgII
-massescutMgII = @df qualcutmassMgII stephist(:MBH_MgII_WuShen2022, label=L"$\mathrm{MgII}$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=10, tickfontsize=10, legendfontsize=8, bins=5, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft, fill=true)
+massescutMgII = @df qualcutmassMgII stephist(:MBH_MgII_WuShen2022, label=L"$\mathrm{MgII}$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=5, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft, fill=true)
 
 xlims!(6,11)
 
@@ -86,18 +88,18 @@ madnorm = mad(filter(!isnan, skipmissing(qualcutmassMgII.MBH_MgII_WuShen2022)), 
 
 number = @sprintf("%.2f", MEANMG)
 madnumber = @sprintf("%.2f", madnorm)
-annotate!([7], [7.5], text(L"$\mathrm{median} = %$number $", 9, :black, rotation=0))
-annotate!([7], [5], text(L"$\mathrm{MAD} = %$madnumber $", 9, :black , rotation=0))
+annotate!([7.5], [7.5], text(L"$\mathrm{median} = %$number $", 39, :black, rotation=0))
+annotate!([7.5], [4.5], text(L"$\mathrm{MAD} = %$madnumber $", 39, :black , rotation=0))
 
 		#Statistics
 MEAN = mean(filter(!isnan, skipmissing(qualcutmassMgII.MBH_MgII_WuShen2022)))
 
-
+##########################################
 	#Comparison between Ha and Hb
 mdif = df.MBH_Ha_ShenLiu2012 .- df.MBH_Hb_WuShen2022
 mdifcut = qualcut.MBH_Ha_ShenLiu2012.-qualcut.MBH_Hb_WuShen2022
 
-massescutHaHb = @df qualcutmassHaHb stephist(mdifcut, label="", xlabel=L"$\log_{10}(M_{\mathrm{BH},\,\mathrm{H}\alpha}/\mathrm{M_{\odot}})-\log_{10}(M_{\mathrm{BH},\,\mathrm{H}\beta}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=10, tickfontsize=10, legendfontsize=6, bins=10, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft, fill=true)
+massescutHaHb = @df qualcutmassHaHb stephist(mdifcut, label="", xlabel=L"$\log_{10}(M_{\mathrm{BH},\,\mathrm{H}\alpha}/\mathrm{M_{\odot}})-\log_{10}(M_{\mathrm{BH},\,\mathrm{H}\beta}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", xguidefontsize=35,yguidefontsize=45, tickfontsize=10, legendfontsize=6, bins=10, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft, fill=true)
 #ylims!(0,15)
 xlims!(-3.4,2.4)
 MEANHaHb = median(filter(!isnan, skipmissing(mdifcut)))
@@ -106,12 +108,12 @@ madnormHaHb = mad(filter(!isnan, skipmissing(mdifcut)), normalize=true)
 number = @sprintf("%.2f", MEANHaHb)
 madnumber = @sprintf("%.2f", madnormHaHb)
 
-annotate!([-1.9], [60], text(L"$\mathrm{median} = %$number $", 9, :black, rotation=0))
-annotate!([-2.3], [40], text(L"$\mathrm{MAD} = %$madnumber $", 9, :black , rotation=0))
+annotate!([-2.], [60], text(L"$\mathrm{median} = %$number $", 35, :black, rotation=0))
+annotate!([-2.], [40], text(L"$\mathrm{MAD} = %$madnumber $", 35, :black , rotation=0))
 
-
+############################################
 	#Halpha
-massescutHa = @df qualcutmassHa stephist(:MBH_Ha_ShenLiu2012, label=L"$\mathrm{H}\alpha$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=10, tickfontsize=10, legendfontsize=8, bins=15, fill=true, color=:royalblue3, legend=:topleft, grid=false, framestyle=:box)
+massescutHa = @df qualcutmassHa stephist(:MBH_Ha_ShenLiu2012, label=L"$\mathrm{H}\alpha$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=15, fill=true, color=:royalblue3, legend=:topleft, grid=false, framestyle=:box)
 
 xlims!(6,11)
 MEANHa = median(filter(!isnan, skipmissing(qualcutmassHa.MBH_Ha_ShenLiu2012)))
@@ -120,12 +122,12 @@ madnorm = mad(filter(!isnan, skipmissing(qualcutmassHa.MBH_Ha_ShenLiu2012)), nor
 number = @sprintf("%.2f", MEANHa)
 madnumber = @sprintf("%.2f", madnorm)
 
-annotate!([7], [150], text(L"$\mathrm{median} = %$number $", 9, :black, rotation=0))
-annotate!([7], [100], text(L"$\mathrm{MAD} = %$madnumber $", 9, :black , rotation=0))
+annotate!([7.2], [150], text(L"$\mathrm{median} = %$number $", 39, :black, rotation=0))
+annotate!([7.2], [100], text(L"$\mathrm{MAD} = %$madnumber $", 39, :black , rotation=0))
 
-
+###############################################
 	#Hbeta
-massescutHb = @df qualcutmassHb stephist(:MBH_Hb_WuShen2022, label=L"$\mathrm{H}\beta$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=10, tickfontsize=10, legendfontsize=8, bins=10, fill=true, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft)
+massescutHb = @df qualcutmassHb stephist(:MBH_Hb_WuShen2022, label=L"$\mathrm{H}\beta$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=10, fill=true, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft)
 
 xlims!(6,11)
 MEANHb = median(filter(!isnan, skipmissing(qualcutmassHb.MBH_Hb_WuShen2022)))
@@ -134,17 +136,46 @@ madnorm = mad(filter(!isnan, skipmissing(qualcutmassHb.MBH_Hb_WuShen2022)), norm
 number = @sprintf("%.2f", MEANHb)
 madnumber = @sprintf("%.2f", madnorm)
 
-annotate!([7], [75], text(L"$\mathrm{median} = %$number $", 9, :black, rotation=0))
-annotate!([7], [50], text(L"$\mathrm{MAD} = %$madnumber $", 9, :black , rotation=0))
+annotate!([7.2], [75], text(L"$\mathrm{median} = %$number $", 39, :black, rotation=0))
+annotate!([7.2], [50], text(L"$\mathrm{MAD} = %$madnumber $", 39, :black , rotation=0))
+
+##################################################
+	#Pab
+massescutPab = @df qualcutmassPab stephist(:MBH_Pab_Ricci, label=L"$\mathrm{Pa}\beta$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=5, fill=true, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft)
+
+xlims!(6,11)
+MEANPab = median(filter(!isnan, skipmissing(qualcutmassPab.MBH_Pab_Ricci)))
+madnorm = mad(filter(!isnan, skipmissing(qualcutmassPab.MBH_Pab_Ricci)), normalize=true)
+
+number = @sprintf("%.2f", MEANPab)
+madnumber = @sprintf("%.2f", madnorm)
+
+annotate!([10], [20], text(L"$\mathrm{median} = %$number $", 35, :black, rotation=0))
+annotate!([10], [15], text(L"$\mathrm{MAD} = %$madnumber $", 35, :black , rotation=0))
 
 
+##################################################
+	#HeI
+massescutHeI = @df qualcutmassHeI stephist(:MBH_HeI_Ricci, label=L"$\mathrm{He\,I}$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=10, fill=true, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft)
+
+xlims!(6,11)
+MEANHeI = median(filter(!isnan, skipmissing(qualcutmassHeI.MBH_HeI_Ricci)))
+madnorm = mad(filter(!isnan, skipmissing(qualcutmassHeI.MBH_HeI_Ricci)), normalize=true)
+
+number = @sprintf("%.2f", MEANHeI)
+madnumber = @sprintf("%.2f", madnorm)
+
+annotate!([10], [50], text(L"$\mathrm{median} = %$number $", 35, :black, rotation=0))
+annotate!([10], [40], text(L"$\mathrm{MAD} = %$madnumber $", 35, :black , rotation=0))
 
 	# Creating the subplot grid for final image
 Allmass = plot(massescutHa, massescutHb, massescutMgII, massescutHaHb, layout=4, annotationfontsize=8, guidefontsize=8, tickfontsize=8, legendfontsize=8, titlefontsize=10)
 plot!(formatter=:latex)
 savefig(Allmass, "Figures/Figure17.pdf")
 
-
+BHmass_panel = plot(massescutHa, massescutHb, massescutMgII, massescutPab, massescutHeI, massescutHaHb, layout=grid(2, 3, widths=(1/3, 1/3, 1/3)), size=(3600, 1800), margin=15*Plots.mm,right_margin=22*Plots.mm, left_margin=25*Plots.mm, bottom_margin=30*Plots.mm, titlefontsize=47, tickfontsize=45, legendfontsize=35)
+plot!(formatter=:latex)
+savefig(BHmass_panel, "Figures/Figure17_Full.pdf")
 
 #############################################################################
 #############################################################################
@@ -422,14 +453,14 @@ qualcut = df[(df.good .== 1), :]
 
 #Quality cut
 #masses histogram
-massescutMean = @df qualcut stephist(:MBH_mean, label=L"$\mathrm{Good\,\,sample}$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=30, fill=true, color=:royalblue3, grid=false, framestyle=:box)
+massescutMean = @df qualcut stephist(:MBH_mean, label=L"$\mathrm{Good\,\,sample}$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=30, fill=true, color=:royalblue3, grid=false, framestyle=:box, xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$")
 
 Cosmomean = @df cosmorangequal stephist!(:MBH_mean, label=L"$0.8<z<1.9$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=30, fill=true, color=:lightblue2, fillcolor=:lightblue2, grid=false, framestyle=:box, legend=:topleft)
 
 #Luminosities histogram
-bolcutMean = @df qualcut stephist(log10.(:Lbol_mean), label=L"$\mathrm{Good\,\,sample}$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=30, fill=true, color=:royalblue3, grid=false, framestyle=:box)
+bolcutMean = @df qualcut stephist(log10.(:Lbol_mean), label=L"$\mathrm{Good\,\,sample}$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=30, fill=true, color=:royalblue3, grid=false, framestyle=:box, xlabel=L"$\log_{10}(L_{bol}/\mathrm{erg \, s^{-1}})$", ylabel=L"$\mathrm{Counts}$")
 
-Cosmomeanlum = @df cosmorangequal stephist!(log10.(:Lbol_mean), label=L"$0.8<z<1.9$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=20, fill=true, color=:lightblue2, fillcolor=:lightblue2, grid=false, framestyle=:box)
+Cosmomeanlum = @df cosmorangequal stephist!(log10.(:Lbol_mean), label=L"$0.8<z<1.9$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=10, fill=true, color=:lightblue2, fillcolor=:lightblue2, grid=false, framestyle=:box)
 
 		#statistics
 MEANFull = mean(filter(!isnan, skipmissing(log10.(qualcut.Lbol_mean))))
@@ -438,14 +469,12 @@ MEDIANFull = median(filter(!isnan, skipmissing(qualcut.MBH_mean)))
 MADFull = mad(filter(!isnan, skipmissing(qualcut.MBH_mean)), normalize=true)
 
 plot!(formatter=:latex)
-xlabel!(L"$\log_{10}(L_{bol}/\mathrm{erg \, s^{-1}})$")
-ylabel!(L"$\mathrm{Counts}$")
+
 
 
 Lummasspanel = plot(bolcutMean, massescutMean, layout=grid(1, 2, widths=(4/8, 4/8)), size=(1600,600), margin=5*Plots.mm, left_margin=10*Plots.mm, bottom_margin=12*Plots.mm , guidefontsize=22, tickfontsize=22, legendfontsize=20, titlefontsize=22)
 
 savefig(Lummasspanel, "Figures/Figure16.pdf")
-
 
 
 
@@ -633,23 +662,6 @@ qualcutPab = df[(df.good .== 1) .&& (df.Pab_br_reliable .==1) .&& coalesce.(df.P
 qualcutHeI = df[(df.good .== 1) .&& (df.HeI_10832_br_reliable .==1) .&& coalesce.(df.HeI_10832_br_fwhm.>2000 .&& coalesce.(df.HeI_10832_br_fwhm.<10000, false), false), :] #coalesce needed for handling "missing" values
 
 ########################################################################################################
-#Estimating the L_bol from L_X (for the MBH based on Pab and HeI)
-L_Pab = log10.(qualcutPab.Pab_br_norm .* 1.0E42)
-L_HeI = log10.(qualcutHeI.HeI_10832_br_norm .* 1.0E42)
-L_sun = 3.828E33 # erg/s
-
-L_2_10keV_Pab = (10 .^ (L_Pab .+ 2.13)) ./ L_sun
-L_2_10keV_HeI = (10 .^ (L_HeI .+ 2.13)) ./ L_sun
-
-# Obtaining the bolometric correction K_X from X-ray luminosity
-KX_Pab = 15.33 .* (1 .+ (log10.(L_2_10keV_Pab) ./ 11.48) .^ 16.2)
-KX_HeI = 15.33 .* (1 .+ (log10.(L_2_10keV_HeI) ./ 11.48) .^ 16.2)
-
-# Obtainning Lbol
-Lbol_LX_Pab = log10.((L_2_10keV_Pab .* L_sun) .* KX_Pab)
-Lbol_LX_HeI = log10.((L_2_10keV_HeI .* L_sun) .* KX_HeI)
-
-
 ########################################################################################################
 
 #########################################################################################################
@@ -704,9 +716,9 @@ MBHHbZcutbol = @df qualcutHb scatter!(log10.(:Lbol_mean), :MBH_Hb_WuShen2022, mc
 
 MBHMgIIZcutbol = @df qualcutMgII scatter!(log10.(:Lbol_mean), :MBH_MgII_WuShen2022, label=L"$\mathrm{Mg\,II}$", mc=:black, markershape=:utriangle, ms=6, ma=1, dpi=300, guidefontsize=16, tickfontsize=16, legendfontsize=16, grid=false, legend=:bottomright,framestyle=:box)
 
-MBHPab = @df qualcutPab scatter!(Lbol_LX_Pab, :MBH_Pab_Ricci, label=L"$\mathrm{Pa\beta}$", mc=:azure1, markershape=:dtriangle, ms=6, ma=1, dpi=300, guidefontsize=18, tickfontsize=18, legendfontsize=18, grid=false, legend=:bottomright,framestyle=:box)
+MBHPab = @df qualcutPab scatter!(log10.(:Lbol_mean), :MBH_Pab_Ricci, label=L"$\mathrm{Pa\beta}$", mc=:azure1, markershape=:dtriangle, ms=6, ma=1, dpi=300, guidefontsize=18, tickfontsize=18, legendfontsize=18, grid=false, legend=:bottomright,framestyle=:box)
 
-MBHHeI = @df qualcutHeI scatter!(Lbol_LX_HeI, :MBH_HeI_Ricci, label=L"$\mathrm{He\,I}$", mc=:skyblue2, markershape=:circle, ms=6, ma=1, dpi=300, guidefontsize=18, tickfontsize=18, legendfontsize=18, grid=false, legend=:bottomright,framestyle=:box)
+MBHHeI = @df qualcutHeI scatter!(log10.(:Lbol_mean), :MBH_HeI_Ricci, label=L"$\mathrm{He\,I}$", mc=:skyblue2, markershape=:circle, ms=6, ma=1, dpi=300, guidefontsize=18, tickfontsize=18, legendfontsize=18, grid=false, legend=:bottomright,framestyle=:box)
 
 
 annotate!([44.4], [6.85], text(L"$\eta_{Edd}=0.1$", 18, :black , rotation=20))

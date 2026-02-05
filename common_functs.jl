@@ -30,27 +30,6 @@ function add_MBH_Ha_ShenLiu2012!(cc)
 end
 
 
-function add_Lbol_eddratio!(cc)
-    cc.Lbol_3000 = 5.15e44 .* cc.L3000 .* 1e-2
-    cc.Lbol_5100 = 9.26e44 .* cc.L5100 .* 1e-2
-    cc.Lbol_mean .= 0.
-    allowmissing!(cc, :Lbol_mean)
-    for i in 1:nrow(cc)
-        try
-	        cc[i, :Lbol_mean] = mean(skip_NaN_missing([cc[i, :Lbol_3000], cc[i, :Lbol_5100]]))
-        catch
-            cc[i, :Lbol_mean] = missing
-        end
-    end
-
-    # Calculates Eddington ratios
-    cc.Ledd_mean = 1.26e38 * 10 .^cc.MBH_mean
-    cc.Edd_ratio = cc.Lbol_mean ./ cc.Ledd_mean
-end
-
-
-
-
 function add_MBH_Ha_Ricci!(cc)
     cc[!, :MBH_Ha_Ricci] .= NaN
     i = findall(cc.Ha_br_reliable .=== 1)
@@ -100,3 +79,40 @@ function add_MBH_HeI_Ricci!(cc)
     # Log(M_BH/M_sun) = 7.86 + 2x[log(FWHM/1e+4 km/s)] + 0.5x[log(L_HeI erg/s) – 39.55]
     cc[i, :MBH_HeI_Ricci] .= 7.86 .+ 2 .* log10.(cc.HeI_10832_br_fwhm[i] ./ 1e4) .+ 0.5 .* (log10.(cc.HeI_10832_br_norm[i]) .+ 42 .- 39.55)
 end
+
+function add_Lbol_eddratio!(cc)
+    j = findall(skip_NaN_missing((cc.Pab_br_reliable .===1) .&
+    				    (cc.Pab_br_norm .> 0 )))
+    k = findall(skip_NaN_missing((cc.HeI_10832_br_reliable .===1) .&
+    				    (cc.HeI_10832_br_norm .> 0 )))
+    L_Pab = log10.(cc.Pab_br_norm[j] .* 1.0E42)
+    L_HeI = log10.(cc.HeI_10832_br_norm[k] .* 1.0E42)
+    L_sun = 3.828E33 # erg/s
+    L_2_10keV_Pab = (10 .^ (L_Pab .+ 2.13)) ./ L_sun #From L_Pab to LX
+    L_2_10keV_HeI = (10 .^ (L_HeI .+ 2.13)) ./ L_sun #From L_HeI to LX
+    KX_Pab = 15.33 .* (1 .+ (log10.(L_2_10keV_Pab) ./ 11.48) .^ 16.2) # bolometric correction
+    KX_HeI = 15.33 .* (1 .+ (log10.(L_2_10keV_HeI) ./ 11.48) .^ 16.2) # bolometric correction
+    
+    cc.Lbol_3000 = 5.15e44 .* cc.L3000 .* 1e-2
+    cc.Lbol_5100 = 9.26e44 .* cc.L5100 .* 1e-2
+    cc[!, :Lbol_LX_Pab] .= NaN
+    cc[!, :Lbol_LX_HeI] .= NaN
+    allowmissing!(cc, :Lbol_LX_Pab)
+    allowmissing!(cc, :Lbol_LX_HeI)
+    cc[j, :Lbol_LX_Pab] .= (L_2_10keV_Pab .* L_sun) .* KX_Pab
+    cc[k, :Lbol_LX_HeI] .= (L_2_10keV_HeI .* L_sun) .* KX_HeI
+    cc.Lbol_mean .= 0.
+    allowmissing!(cc, :Lbol_mean)
+    for i in 1:nrow(cc)
+        try
+	        cc[i, :Lbol_mean] = mean(skip_NaN_missing([cc[i, :Lbol_3000], cc[i, :Lbol_5100], cc[i, :Lbol_LX_Pab], cc[i, :Lbol_LX_HeI]]))
+        catch
+            cc[i, :Lbol_mean] = missing
+        end
+    end
+
+    # Calculates Eddington ratios
+    cc.Ledd_mean = 1.26e38 * 10 .^cc.MBH_mean
+    cc.Edd_ratio = cc.Lbol_mean ./ cc.Ledd_mean
+end
+
