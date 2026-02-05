@@ -457,6 +457,11 @@ massescutMean = @df qualcut stephist(:MBH_mean, label=L"$\mathrm{Good\,\,sample}
 
 Cosmomean = @df cosmorangequal stephist!(:MBH_mean, label=L"$0.8<z<1.9$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=30, fill=true, color=:lightblue2, fillcolor=:lightblue2, grid=false, framestyle=:box, legend=:topleft)
 
+#statistics
+MEANFull = mean(filter(!isnan, skipmissing(qualcut.MBH_mean)))
+Meanline = vline!([MEANFull], label=L"$\mathrm{Geo. \, \,Mean}$", color="red", linewidth = 3.5, thickness_scalling =1, linestyle=:dash)
+
+
 #Luminosities histogram
 bolcutMean = @df qualcut stephist(log10.(:Lbol_mean), label=L"$\mathrm{Good\,\,sample}$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=30, fill=true, color=:royalblue3, grid=false, framestyle=:box, xlabel=L"$\log_{10}(L_{bol}/\mathrm{erg \, s^{-1}})$", ylabel=L"$\mathrm{Counts}$")
 
