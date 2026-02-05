@@ -651,23 +651,11 @@ Lbol_LX_HeI = log10.((L_2_10keV_HeI .* L_sun) .* KX_HeI)
 
 
 ########################################################################################################
-# Read the Fits table from Kozlowsky (2017) for SDSS BH masses from Mg II and C IV lines
-file = FITS("/home/joao/Documents/INAF_EUCLID/SPECTRA/FROM_SDSS/SMBH_mass_z_SDSS/J_ApJS_228_9_table1.dat.gz.fits")
-SDSS = DataFrame(file[2])
-SDSSMgII = SDSS[(SDSS.MBHMgII.>0),:]
-SDSSCIV = SDSS[(SDSS.MBHCIV.>0),:]
-SDSSLbolMgII = SDSS[(SDSS.Lbol.>0) .&& (SDSS.MBHMgII.>0),:]
-SDSSLbolCIV = SDSS[(SDSS.Lbol.>0) .&& (SDSS.MBHCIV.>0),:]
-close(file)
-
 
 #########################################################################################################
 #########################################################################################################
-SDSSMgII = @df SDSSMgII scatter(:z, :MBHMgII, label =L"$\mathrm{SDSS}$", mc=:gray, ms=4, ma=0.2, dp1=300, guidefontsize=14, tickfontsize=14, legendfontsize=14, markerstrokewidth=0, grid=false)
 
-SDSSCIV = @df SDSSCIV scatter!(:z, :MBHCIV, label ="", mc=:gray, ms=4, ma=0.2, dp1=300, guidefontsize=14, tickfontsize=14, legendfontsize=14, markerstrokewidth=0,grid=false)
-
-MBHPabZcut = @df qualcutPab scatter!(:Redshift, :MBH_Pab_Ricci, label=L"$\mathrm{Pa\beta}$", mc=:azure1, markershape=:dtriangle, ms=6, ma=1, dpi=300, guidefontsize=18, tickfontsize=18, legendfontsize=18, grid=false, legend=:bottomright,framestyle=:box)
+MBHPabZcut = @df qualcutPab scatter(:Redshift, :MBH_Pab_Ricci, label=L"$\mathrm{Pa\beta}$", mc=:azure1, markershape=:dtriangle, ms=6, ma=1, dpi=300, guidefontsize=18, tickfontsize=18, legendfontsize=18, grid=false, legend=:bottomright,framestyle=:box)
 
 MBHHeIZcut = @df qualcutHeI scatter!(:Redshift, :MBH_HeI_Ricci, label=L"$\mathrm{He\,I}$", mc=:skyblue2, markershape=:circle, ms=6, ma=1, dpi=300, guidefontsize=18, tickfontsize=18, legendfontsize=18, grid=false, legend=:bottomright,framestyle=:box)
 
@@ -703,13 +691,9 @@ Edlines3 = log10.((10 .^(x))/(eddration3 * (1.26E38)))
 #Edlines4 = log10.((10 .^(x))/(eddration4 * (1.26E38)))
 Edlines5 = log10.((10 .^(x))/(eddration5 * (1.26E38)))
 
-SDSSMgIIbol = @df SDSSLbolMgII scatter(:Lbol, :MBHMgII, label =L"$\mathrm{SDSS}$", mc=:gray, ms=4, ma=0.2, dp1=300, guidefontsize=18, tickfontsize=18, legendfontsize=18, markerstrokewidth=0, grid=false)
 
 
-SDSSCIVbol = @df SDSSLbolCIV scatter!(:Lbol, :MBHCIV, label ="", mc=:gray, ms=4, ma=0.2, dp1=300, guidefontsize=18, tickfontsize=18, legendfontsize=18, markerstrokewidth=0,grid=false)
-
-
-Edrats1 = plot!(x, Edlines1, linecolor=:black, label="", ls=:dash, lw=2)
+Edrats1 = plot(x, Edlines1, linecolor=:black, label="", ls=:dash, lw=2)
 Edrats2 = plot!(x, Edlines3, linecolor=:green, label="", ls=:dash, lw=2)
 Edrats3 = plot!(x, Edlines5, linecolor= :orchid, label="", ls=:dash, lw=2)
 
@@ -737,72 +721,10 @@ xlims!(42.5,49)
 
 #savefig(SDSSMgIIbol, "MBHvLbol_w_SDSS.png")
 #savefig(SDSSMgIIbol, "MBHvLbol_w_SDSS.pdf")
-AllSDSS = plot(SDSSMgII, SDSSMgIIbol, layout=grid(1, 2, widths=(4/8, 4/8)), size=(1600,600), margin=5*Plots.mm, left_margin=10*Plots.mm, bottom_margin=13*Plots.mm, titlefontsize=22, guidefontsize=22, tickfontsize=22, legendfontsize=20, annotationfontsize=20)
+AllSDSS = plot(MBHPabZcut, MBHHaZcutbol, layout=grid(1, 2, widths=(4/8, 4/8)), size=(1600,600), margin=5*Plots.mm, left_margin=10*Plots.mm, bottom_margin=13*Plots.mm, titlefontsize=22, guidefontsize=22, tickfontsize=22, legendfontsize=20, annotationfontsize=20)
 plot!(formatter=:latex)
 savefig(AllSDSS, "Figures/MBH_SDSS_all.png")
 
-
-#################################################################
-#################################################################
-#################################################################
-#			Composite 				#
-#################################################################
-#################################################################
-#################################################################
-
-Lussocomp = CSV.read("/home/joao/LinTS/Composite_analysis/Lusso_&_Giorgio_composites/sdss_all_mean_hostcorr.csv", DataFrame)
-Lussospline = Dierckx.Spline1D(Lussocomp[:, 1], Lussocomp[:, 2], k=1, bc="error") #k=1 for linear spline. Bc=error for behaviour when out of bounds
-Lussonorm = Lussospline(5600) #evaluates the spline of composite at wavelength 5600AA to use as normalizing factor
-
-#Same for Giorgio's composite
-Giorgiofits = FITS("/home/joao/LinTS/Composite_analysis/Lusso_&_Giorgio_composites/Euclid_composite_arit.fits")
-Giorgiocomp = DataFrame(Giorgiofits[2])
-Giorgiospline = Dierckx.Spline1D(Giorgiocomp[:, 1], Giorgiocomp[:,1] .*Giorgiocomp[:, 2], k=1, bc="error") #k=1 for linear spline. Bc=error for behaviour when out of bounds
-Giorgionorm = Giorgiospline(5600)
-
-# For the host template
-host = JSON.parsefile("/home/joao/LinTS/Composite_analysis/composite_Ell5/composite_Ell5.json")
-hdata = host[:1]
-
-wave1 = hdata[:"domain"][:"axis"]
-hostgal = hdata[:"buffers"][:"Galaxy"]
-ratio=70
-
-Lusso = plot(Lussocomp[:,1], Lussocomp[:,2]./Lussonorm, label=L"$\mathrm{Lusso \, et \, al. \, (2024) \, composite}$", dpi=300, guidefontsize=20, tickfontsize=20, linewidth=1, legendfontsize=18, grid=false, color=:gray,framestyle=:box, legend=:bottom, z_order=1, xlabel="", ylabel="")
-
-Giorgio = plot!(Giorgiocomp[:,1], Giorgiocomp[:,1] .* Giorgiocomp[:,2]./Giorgionorm, label=L"$\mathrm{This \, work}$", dpi=300, guidefontsize=22, tickfontsize=22, linewidth=2, legendfontsize=20, grid=false, color=:royalblue1 ,framestyle=:box, legend=:bottom, z_order=2, xlabel="", ylabel="")
-
-host = plot!(wave1, hostgal .* ratio, label=L"$\mathrm{Host \, (Elliptical - 5Gyrs)}$", dpi=300, guidefontsize=22, tickfontsize=22, linewidth=2, legendfontsize=20, grid=false, color=:goldenrod4 ,framestyle=:box, legend=:bottom, xlabel="", ylabel="")
-
-plot!(titlefontsize=16, guidefontsize=16, tickfontsize=16, legendfontsize=16, linewidth = 1)
-plot!(formater=:latex, xaxis=:log10, yaxis=:log10)
-plot!(xticks=([1000, 2000, 5000, 10000, 20000],[L"$1000$", L"$2000$", L"$5000$", L"$10\,000$",L"$20\,000$"])) 
-plot!(yticks=([0,0.1, 0.2, 0.5 ,1, 2, 4, 6],[L"$0$", L"$0.1$", L"$0.2$", L"$0.5$", L"$1$", L"$2$",L"$4$", L"$6$"])) 
-title!(L"$\mathrm{\textbf{QSO \,\, composites}}$")
-xlabel!(L"$\mathrm{Wavelength \, \, (\AA)}$")
-ylabel!(L"$\mathrm{\lambda L_{\lambda} \, (arbitrary \, units)}$")
-
-savefig(Lusso, "Figures/Euclid_composite.png")
-
-
-######################################################################
-
-# QSO Composite host/QSO histogram
-Datacomp = CSV.read("/home/joao/Documents/LinesInTheSky/Composite_qso_host_comparison_v2.csv", DataFrame; delim=',')
-dfcomp = Datacomp
-
-compare = dfcomp.Galaxy ./ dfcomp.Continuum
-#Plotting
-#######################################
-
-comp = @df dfcomp stephist(compare, label=L"$\mathrm{Host \, \, templates}$", bins=30, guidefontsize=16, tickfontsize=16, legendfontsize=16, fill=true, color=:white, fillcolor=:royalblue3, grid=false, framestyle=:box)
-#title!("QSO continuum spectral index")
-
-plot!(formatter=:latex)
-xlabel!(L"$\mathrm{Host \, luminosity / QSO \, Continuum \, luminosity}$")
-ylabel!(L"$\mathrm{Counts}$")
-
-savefig(comp, "Figures/Composite_host_QSO_comparison.pdf")
 
 
 
