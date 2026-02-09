@@ -83,10 +83,10 @@ massescutMgII = @df qualcutmassMgII stephist(:MBH_MgII_WuShen2022, label=L"$\mat
 
 xlims!(6,11)
 
-MEANMG = median(filter(!isnan, skipmissing(qualcutmassMgII.MBH_MgII_WuShen2022)))
+MEDIANMG = median(filter(!isnan, skipmissing(qualcutmassMgII.MBH_MgII_WuShen2022)))
 madnorm = mad(filter(!isnan, skipmissing(qualcutmassMgII.MBH_MgII_WuShen2022)), normalize=true)
 
-number = @sprintf("%.2f", MEANMG)
+number = @sprintf("%.2f", MEDIANMG)
 madnumber = @sprintf("%.2f", madnorm)
 annotate!([7.5], [7.5], text(L"$\mathrm{median} = %$number $", 39, :black, rotation=0))
 annotate!([7.5], [4.5], text(L"$\mathrm{MAD} = %$madnumber $", 39, :black , rotation=0))
@@ -102,10 +102,10 @@ mdifcut = qualcut.MBH_Ha_ShenLiu2012.-qualcut.MBH_Hb_WuShen2022
 massescutHaHb = @df qualcutmassHaHb stephist(mdifcut, label="", xlabel=L"$\log_{10}(M_{\mathrm{BH},\,\mathrm{H}\alpha}/\mathrm{M_{\odot}})-\log_{10}(M_{\mathrm{BH},\,\mathrm{H}\beta}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", xguidefontsize=35,yguidefontsize=45, tickfontsize=10, legendfontsize=6, bins=10, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft, fill=true)
 #ylims!(0,15)
 xlims!(-3.4,2.4)
-MEANHaHb = median(filter(!isnan, skipmissing(mdifcut)))
+MEDIANHaHb = median(filter(!isnan, skipmissing(mdifcut)))
 Meanhahb = mean(filter(!isnan, skipmissing(mdifcut)))
 madnormHaHb = mad(filter(!isnan, skipmissing(mdifcut)), normalize=true)
-number = @sprintf("%.2f", MEANHaHb)
+number = @sprintf("%.2f", MEDIANHaHb)
 madnumber = @sprintf("%.2f", madnormHaHb)
 
 annotate!([-2.], [60], text(L"$\mathrm{median} = %$number $", 35, :black, rotation=0))
@@ -116,10 +116,10 @@ annotate!([-2.], [40], text(L"$\mathrm{MAD} = %$madnumber $", 35, :black , rotat
 massescutHa = @df qualcutmassHa stephist(:MBH_Ha_ShenLiu2012, label=L"$\mathrm{H}\alpha$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=15, fill=true, color=:royalblue3, legend=:topleft, grid=false, framestyle=:box)
 
 xlims!(6,11)
-MEANHa = median(filter(!isnan, skipmissing(qualcutmassHa.MBH_Ha_ShenLiu2012)))
+MEDIANHa = median(filter(!isnan, skipmissing(qualcutmassHa.MBH_Ha_ShenLiu2012)))
 madnorm = mad(filter(!isnan, skipmissing(qualcutmassHa.MBH_Ha_ShenLiu2012)), normalize=true)
 
-number = @sprintf("%.2f", MEANHa)
+number = @sprintf("%.2f", MEDIANHa)
 madnumber = @sprintf("%.2f", madnorm)
 
 annotate!([7.2], [150], text(L"$\mathrm{median} = %$number $", 39, :black, rotation=0))
@@ -130,10 +130,10 @@ annotate!([7.2], [100], text(L"$\mathrm{MAD} = %$madnumber $", 39, :black , rota
 massescutHb = @df qualcutmassHb stephist(:MBH_Hb_WuShen2022, label=L"$\mathrm{H}\beta$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=10, fill=true, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft)
 
 xlims!(6,11)
-MEANHb = median(filter(!isnan, skipmissing(qualcutmassHb.MBH_Hb_WuShen2022)))
+MEDIANHb = median(filter(!isnan, skipmissing(qualcutmassHb.MBH_Hb_WuShen2022)))
 madnorm = mad(filter(!isnan, skipmissing(qualcutmassHb.MBH_Hb_WuShen2022)), normalize=true)
 
-number = @sprintf("%.2f", MEANHb)
+number = @sprintf("%.2f", MEDIANHb)
 madnumber = @sprintf("%.2f", madnorm)
 
 annotate!([7.2], [75], text(L"$\mathrm{median} = %$number $", 39, :black, rotation=0))
@@ -144,10 +144,10 @@ annotate!([7.2], [50], text(L"$\mathrm{MAD} = %$madnumber $", 39, :black , rotat
 massescutPab = @df qualcutmassPab stephist(:MBH_Pab_Ricci, label=L"$\mathrm{Pa}\beta$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=5, fill=true, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft)
 
 xlims!(6,11)
-MEANPab = median(filter(!isnan, skipmissing(qualcutmassPab.MBH_Pab_Ricci)))
+MEDIANPab = median(filter(!isnan, skipmissing(qualcutmassPab.MBH_Pab_Ricci)))
 madnorm = mad(filter(!isnan, skipmissing(qualcutmassPab.MBH_Pab_Ricci)), normalize=true)
 
-number = @sprintf("%.2f", MEANPab)
+number = @sprintf("%.2f", MEDIANPab)
 madnumber = @sprintf("%.2f", madnorm)
 
 annotate!([10], [20], text(L"$\mathrm{median} = %$number $", 35, :black, rotation=0))
@@ -159,10 +159,10 @@ annotate!([10], [15], text(L"$\mathrm{MAD} = %$madnumber $", 35, :black , rotati
 massescutHeI = @df qualcutmassHeI stephist(:MBH_HeI_Ricci, label=L"$\mathrm{He\,I}$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=10, fill=true, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft)
 
 xlims!(6,11)
-MEANHeI = median(filter(!isnan, skipmissing(qualcutmassHeI.MBH_HeI_Ricci)))
+MEDIANHeI = median(filter(!isnan, skipmissing(qualcutmassHeI.MBH_HeI_Ricci)))
 madnorm = mad(filter(!isnan, skipmissing(qualcutmassHeI.MBH_HeI_Ricci)), normalize=true)
 
-number = @sprintf("%.2f", MEANHeI)
+number = @sprintf("%.2f", MEDIANHeI)
 madnumber = @sprintf("%.2f", madnorm)
 
 annotate!([10], [50], text(L"$\mathrm{median} = %$number $", 35, :black, rotation=0))
@@ -208,7 +208,7 @@ alpha3 = @df z3 stephist!(:QSOcont_alpha, label=L"$z>2$", bins=20, guidefontsize
 
 
 #Plotting vertical lines for the medians
-MEANIE = vline!([median(filter(!isnan, skipmissing(qualcut.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda} = %$medianzall", color=:black, linewidth = 2, thickness_scalling =1, linestyle=:solid, z_order=6)
+MEDIANIE = vline!([median(filter(!isnan, skipmissing(qualcut.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda} = %$medianzall", color=:black, linewidth = 2, thickness_scalling =1, linestyle=:solid, z_order=6)
 
 z11 = vline!([median(filter(!isnan, skipmissing(z1.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda,\,z<1} = %$medianz1", color=:darkred, linewidth = 3, thickness_scalling =1, linestyle=:dash, z_order=7)
 
@@ -531,9 +531,9 @@ minusHaFWHM = qualcut.MBH_Ha_ShenLiu2012 .-qualcutDESI.MBH_MgII_WuShen2022
 MBHDESIHaEuclidcut = @df HaFWHM_cut stephist(minusHaFWHM, xlabel=L"$\log_{10}(M_{\mathrm{BH},\, Euclid}/\mathrm{M_{\odot}})-\log_{10}(M_{\mathrm{BH},\, \mathrm{DESI}}/\mathrm{M_{\odot}})$", label=L"$\mathrm{H}\alpha - \mathrm{MgII}$", guidefontsize=12, tickfontsize=12, legendfontsize=12, bins=10, fill=true, color=:royalblue3, grid=false, legend=:topleft, framestyle=:box)
 
 madnorm = mad(filter(!isnan, skipmissing(minusHaFWHM)), normalize=true)
-MEAN = median(filter(!isnan, skipmissing(minusHaFWHM)))
+MEDIAN = median(filter(!isnan, skipmissing(minusHaFWHM)))
 
-number = @sprintf("%.2f", MEAN)
+number = @sprintf("%.2f", MEDIAN)
 madnumber = @sprintf("%.2f", madnorm)
 
 mmean = mean(filter(!isnan, skipmissing(minusHaFWHM)))
