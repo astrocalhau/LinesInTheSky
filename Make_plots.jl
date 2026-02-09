@@ -169,9 +169,9 @@ annotate!([10], [50], text(L"$\mathrm{median} = %$number $", 35, :black, rotatio
 annotate!([10], [40], text(L"$\mathrm{MAD} = %$madnumber $", 35, :black , rotation=0))
 
 	# Creating the subplot grid for final image
-Allmass = plot(massescutHa, massescutHb, massescutMgII, massescutHaHb, layout=4, annotationfontsize=8, guidefontsize=8, tickfontsize=8, legendfontsize=8, titlefontsize=10)
-plot!(formatter=:latex)
-savefig(Allmass, "Figures/Figure17.pdf")
+#Allmass = plot(massescutHa, massescutHb, massescutMgII, massescutHaHb, layout=4, annotationfontsize=8, guidefontsize=8, tickfontsize=8, legendfontsize=8, titlefontsize=10)
+#plot!(formatter=:latex)
+#savefig(Allmass, "Figures/Figure17.pdf")
 
 BHmass_panel = plot(massescutHa, massescutHb, massescutMgII, massescutPab, massescutHeI, massescutHaHb, layout=grid(2, 3, widths=(1/3, 1/3, 1/3)), size=(3600, 1800), margin=15*Plots.mm,right_margin=22*Plots.mm, left_margin=25*Plots.mm, bottom_margin=30*Plots.mm, titlefontsize=47, tickfontsize=45, legendfontsize=35)
 plot!(formatter=:latex)
