@@ -1,4 +1,4 @@
-using Revise, FITSIO, DataFrames, Gnuplot, Dierckx, ProgressMeter, Statistics, StatsBase, Serialization, CSV, DataStructures
+using Revise, FITSIO, DataFrames, Gnuplot, Dierckx, ProgressMeter, Statistics, StatsBase, Serialization, CSV, DataStructures, TypedJSON
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer, CMPFit
 
 Gnuplot.options.term = "qt size 1600,900 enhanced font 'Latin Modern Roman, 13' lw 1.5"
@@ -297,7 +297,7 @@ if !isfile(serialize_filename)
     for i in 1:nrow(catalog)
         try
             filename = "$(output_path)/JSON/$(catalog[i, :object_id]).json.gz"
-            res = QSFit.deserialize(filename)
+            res = TypedJSON.deserialize(filename)
             push!(specs, SingleSpec(coords(res.data.domain),
                                     values(res.data),
                                     res.bestfit(),
