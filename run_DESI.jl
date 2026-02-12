@@ -1,5 +1,5 @@
 using Revise
-using Base.Threads, FITSIO, DataFrames, DataStructures, Printf, Statistics, StatsBase
+using Base.Threads, FITSIO, DataFrames, DataStructures, Printf, Statistics, StatsBase, TypedJSON
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
 using SkyCoords, DustExtinction
 using LinesInTheSky
@@ -29,7 +29,7 @@ function analyze_spec(input_path, output_path, row; clob=false)
     recipe = CRecipe{Type1}(redshift=row[:Z], use_host_template=true, Av=ebv * 3.1)
     res = analyze(recipe, spec)
 
-    QSFit.serialize(output_filename, res, compress=true)
+    TypedJSON.serialize(output_filename, res, compress=true)
     return res
 end
 
@@ -38,7 +38,7 @@ function read_results(output_path, row)
     isfile(filename)  ||  error("File $filename do not exists.")
 
     @info "Reading $filename ..."
-    res = QSFit.deserialize(filename)
+    res = TypedJSON.deserialize(filename)
     out = OrderedDict(:ID_DESI => row.id_DESI_DR1, :ID_EUCLID => row.object_id,
                       :Redshift => row.Z, :Source => row.CAT, :redchisq => res.fsumm.fitstat,
                       :NPOINTS => res.fsumm.ndata, :SNR => res.post[:Data_stats][:SNR], :DER_SNR => res.post[:Data_stats][:DER_SNR], :nneg => res.post[:Data_stats][:nneg],

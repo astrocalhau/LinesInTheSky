@@ -1,5 +1,5 @@
 using Revise
-using Base.Threads, FITSIO, DataFrames, DataStructures, Printf, Statistics, StatsBase, Unitful
+using Base.Threads, FITSIO, DataFrames, DataStructures, Printf, Statistics, StatsBase, Unitful, TypedJSON
 using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
 using SkyCoords, DustExtinction
 using LinesInTheSky
@@ -78,7 +78,7 @@ function analyze_spec(input_path, output_path, row; clob=false)
         end
     end
 
-    QSFit.serialize(output_filename, res, compress=true)
+    TypedJSON.serialize(output_filename, res, compress=true)
     return res
 end
 
@@ -87,7 +87,7 @@ function read_results(output_path, row)
     isfile(filename)  ||  error("File filename do not exists.")
 
     @info "Reading $filename ..."
-    res = QSFit.deserialize(filename)
+    res = TypedJSON.deserialize(filename)
     out = OrderedDict(:ID => row.object_id,
                       :Redshift => row.Z, :Hmag => row.HMAG, :Ref_QUBRICS => row.ref_QUBRICS, :QUBRICS => row.QUBRICS, :DESI => row.DESI, :FU => row.FU, :redchisq => res.fsumm.fitstat,
                       :NPOINTS => res.fsumm.ndata, :SNR => res.post[:Data_stats][:SNR], :DER_SNR => res.post[:Data_stats][:DER_SNR], :nneg => res.post[:Data_stats][:nneg],
@@ -160,7 +160,7 @@ function run_Euclid()
     output_path = "results_Euclid"
 
     # Read input catalog
-    f = FITS("$(input_path)/catalog.fits")
+    f = FITS("$(input_path)/catalog_10022026_redshiftcorrected.fits")
     catalog = DataFrame(f[2])
     close(f)
 
@@ -176,7 +176,7 @@ function run_Euclid()
     # Write results in a FITS file
     write_fits("$(output_path)/QSFIT_RESULTS.fits", results)
 
-    return input_path, output_path, catalog, results
+    return input_path, output_path#, catalog, results
 end
 
 # input_path, output_path, catalog, results = run_Euclid()
