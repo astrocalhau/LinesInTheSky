@@ -55,7 +55,7 @@ plot!(formatter=:latex)
 xlabel!(L"$z$")
 ylabel!(L"$\mathrm{Counts}$")
 
-savefig(red, "Figures/Figure2.pdf")
+savefig(red, "Figures/Redshift_Hist_Figure.pdf")
 
 #############################################################################
 
@@ -71,7 +71,7 @@ plot!(formatter=:latex)
 xlabel!(L"$z$")
 ylabel!(L"$\mathrm{Counts}$")
 
-savefig(red, "Figures/Figure9.pdf")
+savefig(red, "Figures/Redshift_Hist_Quality_Figure.pdf")
 
 #############################################################################
 #############################################################################
@@ -175,7 +175,7 @@ annotate!([10], [40], text(L"$\mathrm{MAD} = %$madnumber $", 35, :black , rotati
 
 BHmass_panel = plot(massescutHa, massescutHb, massescutMgII, massescutPab, massescutHeI, massescutHaHb, layout=grid(2, 3, widths=(1/3, 1/3, 1/3)), size=(3600, 1800), margin=15*Plots.mm,right_margin=22*Plots.mm, left_margin=25*Plots.mm, bottom_margin=30*Plots.mm, titlefontsize=47, tickfontsize=45, legendfontsize=35)
 plot!(formatter=:latex)
-savefig(BHmass_panel, "Figures/Figure17_Full.pdf")
+savefig(BHmass_panel, "Figures/BH_mass_hist_all.pdf")
 
 #############################################################################
 #############################################################################
@@ -221,7 +221,7 @@ plot!(formatter=:latex)
 xlabel!(L"$\alpha_{\lambda}$")
 ylabel!(L"$\mathrm{Counts}$")
 
-savefig(alpha1, "Figures/Figure10.pdf")
+savefig(alpha1, "Figures/QSOcont_alpha_Hist_Redshift_2.pdf")
 
 #############################################################################
 #############################################################################
@@ -241,7 +241,7 @@ plot!(xticks=([1, 2, 5, 10, 20, 50, 100, 500, 2000, 10000],[L"$1$",L"$2$",L"$5$"
 xlabel!(L"$\mathrm{reduced} \,\, \chi^2$")
 ylabel!(L"$\mathrm{S/N_{spectrum}}$")
 
-savefig(chiSNR, "Figures/Figure5.pdf")
+savefig(chiSNR, "Figures/Chi2vsSNR_cut_Fig.pdf")
 
 #############################################################################
 #############################################################################
@@ -261,7 +261,7 @@ plot!(formatter=:latex)
 xlabel!(L"$H_E \, \, \mathrm{magnitude}$")
 ylabel!(L"$\mathrm{Counts}$")
 
-savefig(mags_cut, "Figures/Figure7.pdf")
+savefig(mags_cut, "Figures/Hmag_Hist_source_Fig.pdf")
 
 ######################################
 
@@ -277,7 +277,7 @@ plot!(formatter=:latex)
 xlabel!(L"$z$")
 ylabel!(L"$H_E$")
 
-savefig(HmagqualFU, "Figures/Figure8.pdf")
+savefig(HmagqualFU, "Figures/Hmag_vs_z_cut_Fig.pdf")
 
 
 #############################################################################
@@ -302,7 +302,7 @@ plot!(formatter=:latex)
 xlabel!(L"$\log_{10}(L_{\mathrm{H\alpha}}/\mathrm{erg \, s^{-1}})$")
 ylabel!(L"$\mathrm{Counts}$")
 
-savefig(Ha_cut, "Figures/Figure15.pdf")
+savefig(Ha_cut, "Figures/Ha_Lum_Fig.pdf")
 
 #########################################################################################################
 #Pab, HeI, Hb Luminosity Histograms
@@ -329,18 +329,18 @@ totalmgiicut = log10.((GoodMgIIcut.MgII_2798_br_norm).*1E42)
 
 
 #Quality cut
-Hb_cut = @df GoodHbcut stephist(totalhbcut, label=L"$\mathrm{H\beta}$", guidefontsize=17, tickfontsize=17, legendfontsize=15, bins=25, fill=true, color=:royalblue4, legend=:topleft, grid=false, framestyle=:box, bottom_margin=2*Plots.mm, normalize=:probability)
+Hb_cut = @df GoodHbcut stephist(totalhbcut, label=L"$\mathrm{H\beta}$", guidefontsize=17, tickfontsize=17, legendfontsize=15, bins=10, fill=true, color=:royalblue4, legend=:topleft, grid=false, framestyle=:box, bottom_margin=2*Plots.mm, normalize=:probability)
 
-HeI_cut = @df GoodHeIcut stephist!(totalheicut, label=L"$\mathrm{He\,I}$", guidefontsize=17, tickfontsize=17, legendfontsize=15, bins=15, fill=true, color=:skyblue2, legend=:topleft, grid=false, framestyle=:box, alpha=0.8, bottom_margin=2*Plots.mm, normalize=:probability)
+HeI_cut = @df GoodHeIcut stephist!(totalheicut, label=L"$\mathrm{He\,I}$", guidefontsize=17, tickfontsize=17, legendfontsize=15, bins=5, fill=true, color=:skyblue2, legend=:topleft, grid=false, framestyle=:box, alpha=0.8, bottom_margin=2*Plots.mm, normalize=:probability)
 
-Pab_cut = @df GoodPabcut stephist!(totalpabcut, label=L"$\mathrm{Pa}\beta$", guidefontsize=17, tickfontsize=17, legendfontsize=15, bins=25, fill=true, color=:lightblue1, legend=:topleft, grid=false, framestyle=:box, bottom_margin=2*Plots.mm, normalize=:probability, alpha=0.8)
+Pab_cut = @df GoodPabcut stephist!(totalpabcut, label=L"$\mathrm{Pa}\beta$", guidefontsize=17, tickfontsize=17, legendfontsize=15, bins=15, fill=true, color=:lightblue1, legend=:topleft, grid=false, framestyle=:box, bottom_margin=2*Plots.mm, normalize=:probability, alpha=0.8)
 
-MgII_cut = @df GoodMgIIcut stephist!(totalmgiicut, label=L"$\mathrm{Mg\,II}$", guidefontsize=17, tickfontsize=17, legendfontsize=15, bins=10, fill=true, color=:tomato1, legend=:topleft, grid=false, framestyle=:box, bottom_margin=2*Plots.mm, normalize=:probability, alpha=0.7)
+MgII_cut = @df GoodMgIIcut stephist!(totalmgiicut, label=L"$\mathrm{Mg\,II}$", guidefontsize=17, tickfontsize=17, legendfontsize=15, bins=5, fill=true, color=:tomato1, legend=:topleft, grid=false, framestyle=:box, bottom_margin=2*Plots.mm, normalize=:probability, alpha=0.7)
 
 plot!(formatter=:latex)
 xlabel!(L"$\log_{10}(L_{\mathrm{line}}/\mathrm{erg \, s^{-1}})$")
 
-savefig(Hb_cut, "Figures/Figure12.pdf")
+savefig(Hb_cut, "Figures/Hb_Lum_Fig.pdf")
 
 #############################################################################
 #############################################################################
@@ -440,7 +440,7 @@ ylabel!(L"$\mathrm{Counts}$")
 
 fwhm_panel = plot(fwhm_cutHb, fwhm_cutMg, fwhm_cut, fwhm_cutPab, fwhm_cutHeI, layout=grid(2, 3, widths=(1/3, 1/3, 1/3)), size=(3600, 1800), margin=15*Plots.mm,right_margin=22*Plots.mm, left_margin=25*Plots.mm, bottom_margin=30*Plots.mm, titlefontsize=47,guidefontsize=45, tickfontsize=45, legendfontsize=35)
 
-savefig(fwhm_panel, "Figures/Figure14.pdf")
+savefig(fwhm_panel, "Figures/FWHM_Panel.pdf")
 
 #############################################################################
 #############################################################################
@@ -479,7 +479,7 @@ plot!(formatter=:latex)
 
 Lummasspanel = plot(bolcutMean, massescutMean, layout=grid(1, 2, widths=(4/8, 4/8)), size=(1600,600), margin=5*Plots.mm, left_margin=10*Plots.mm, bottom_margin=12*Plots.mm , guidefontsize=22, tickfontsize=22, legendfontsize=20, titlefontsize=22)
 
-savefig(Lummasspanel, "Figures/Figure16.pdf")
+savefig(Lummasspanel, "Figures/Mean_Bol_Mass_fig.pdf")
 
 
 
@@ -569,7 +569,7 @@ Medianline = vline!([MEDIAN], label=L"$\mathrm{median}= %$numbermedian $", color
 
 
 plot!(formatter=:latex)
-savefig(MgIIHbhist, "Figures/Figure13.pdf")
+savefig(MgIIHbhist, "Figures/MgIIDESI_HbEuclid_ratio.pdf")
 
 #################################################################
 # BHM scatter
@@ -596,7 +596,7 @@ ylims!(7.5,10)
 
 
 panelfwhm = plot(MBHDESIHaEuclidcut, BHM_cutMg ,layout=grid(1, 2, widths=(4/8, 4/8)), size=(1600,600), margin=5*Plots.mm, left_margin=20*Plots.mm, bottom_margin=15*Plots.mm, titlefontsize=23,guidefontsize=23, tickfontsize=23, legendfontsize=23)
-savefig(panelfwhm, "Figures/Figure18.pdf")
+savefig(panelfwhm, "Figures/BHM_Euclid_DESI_Panel_Fig.pdf")
 
 ##################################################################################
 # Chi2/SNR scatter plot
@@ -613,7 +613,7 @@ plot!(xticks=([1, 2, 5, 10, 20, 50, 100, 500, 2000, 10000],[L"$1$",L"$2$",L"$5$"
 xlabel!(L"$\mathrm{reduced}\,\, \chi^2$")
 ylabel!(L"$\mathrm{S/N_{spectrum}}$")
 
-savefig(Kamehameha, "Figures/Figure6.pdf")
+savefig(Kamehameha, "Figures/Chi2vsSNR_cut_Fig_DESI.pdf")
 
 ######################################################################################
 
@@ -643,7 +643,7 @@ plot!(formatter=:latex)
 xlabel!(L"$\alpha_{\lambda}$")
 xlims!(-5,6)
 
-savefig(Dalphacut, "Figures/Figure11.pdf")
+savefig(Dalphacut, "Figures/QSOcont_alpha_DESI_Fig.pdf")
 
 #############################################################################
 

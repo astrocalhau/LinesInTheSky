@@ -160,7 +160,7 @@ function run_Euclid()
     output_path = "results_Euclid"
 
     # Read input catalog
-    f = FITS("$(input_path)/catalog_10022026_redshiftcorrected.fits")
+    f = FITS("$(input_path)/catalog.fits")
     catalog = DataFrame(f[2])
     close(f)
 
