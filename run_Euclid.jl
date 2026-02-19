@@ -143,7 +143,7 @@ function calculate_additional_columns!(results)
     end
 
     # Calculates Lbol and Eddington ratios
-    add_Lbol_eddratio!(results)
+    add_Lbol_eddratio_Euclid!(results)
 
     # Creates Quality cut columns
     results[!, :good] = Int.(((results.NPOINTS .> 450)                                        .&
