@@ -80,13 +80,13 @@ function calculate_additional_columns!(results)
     # Calculates Mbh
     add_MBH_Hb_WuShen2022!(results)
     add_MBH_MgII_WuShen2022!(results)
-    # add_MBH_Ha_ShenLiu2012!(results)
-    # add_MBH_Ha_Ricci!(results)
+    #add_MBH_Ha_ShenLiu2012!(results)
+    #add_MBH_Ha_Ricci!(results)
     add_MBH_Hb_Ricci!(results)
-    # add_MBH_Ha_L5100_Ricci!(results)
+    #add_MBH_Ha_L5100_Ricci!(results)
     add_MBH_MgII_Ricci!(results)
-    # add_MBH_Pab_Ricci!(results)
-    # add_MBH_HeI_Ricci!(results)
+    #add_MBH_Pab_Ricci!(results)
+    #add_MBH_HeI_Ricci!(results)
 
     results.MBH_mean .= NaN
     for i in 1:nrow(results)
@@ -94,7 +94,7 @@ function calculate_additional_columns!(results)
     end
 
     # Calculates Lbol and Eddington ratios
-    add_Lbol_eddratio!(results)
+    add_Lbol_eddratio_DESI!(results)
 
     # Creates Quality cut columns
     results[!, :good] = Int.((results.NPOINTS .> 6000)                   .&
