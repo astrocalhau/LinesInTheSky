@@ -80,7 +80,7 @@ function add_MBH_HeI_Ricci!(cc)
     cc[i, :MBH_HeI_Ricci] .= 7.86 .+ 2 .* log10.(cc.HeI_10832_br_fwhm[i] ./ 1e4) .+ 0.5 .* (log10.(cc.HeI_10832_br_norm[i]) .+ 42 .- 39.55)
 end
 
-function add_Lbol_eddratio!(cc)
+function add_Lbol_eddratio_Euclid!(cc)
     j = findall(skip_NaN_missing((cc.Pab_br_reliable .===1) .&
     				    (cc.Pab_br_norm .> 0 )))
     k = findall(skip_NaN_missing((cc.HeI_10832_br_reliable .===1) .&
@@ -115,4 +115,25 @@ function add_Lbol_eddratio!(cc)
     cc.Ledd_mean = 1.26e38 * 10 .^cc.MBH_mean
     cc.Edd_ratio = cc.Lbol_mean ./ cc.Ledd_mean
 end
+
+function add_Lbol_eddratio_DESI!(cc)
+    cc.Lbol_3000 = 5.15e44 .* cc.L3000 .* 1e-2
+    cc.Lbol_5100 = 9.26e44 .* cc.L5100 .* 1e-2
+    cc.Lbol_mean .= 0.
+    allowmissing!(cc, :Lbol_mean)
+    for i in 1:nrow(cc)
+        try
+	        cc[i, :Lbol_mean] = mean(skip_NaN_missing([cc[i, :Lbol_3000], cc[i, :Lbol_5100]]))
+        catch
+            cc[i, :Lbol_mean] = missing
+        end
+    end
+
+    # Calculates Eddington ratios
+    cc.Ledd_mean = 1.26e38 * 10 .^cc.MBH_mean
+    cc.Edd_ratio = cc.Lbol_mean ./ cc.Ledd_mean
+end
+
+
+
 
