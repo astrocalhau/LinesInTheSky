@@ -133,44 +133,33 @@ plot!(formatter=:latex);  savefig("Figures/BH_mass_Ha_vs_Hb.pdf")
 # QSO Continuum alpha index histogram
 #With quality cut and redshift separation
 # Creating relevant dataframes for the redshift bins
-z1 = qualcut[qualcut.Redshift .<1, :]
-z2 = qualcut[(qualcut.Redshift .>1) .&& (qualcut.Redshift .<2) , :]
-z3 = qualcut[qualcut.Redshift .>2, :]
+z1 = df[intersect(qc.good, findall(      df.Redshift .< 1)), :]
+z2 = df[intersect(qc.good, findall(1 .<= df.Redshift .< 2)), :]
+z3 = df[intersect(qc.good, findall(2 .<= df.Redshift     )), :]
 
 #Estimating medians for the bins
-medianz1 = @sprintf("%.2f",median(filter(!isnan, skipmissing(z1.QSOcont_alpha))))
-medianz2 = @sprintf("%.2f",median(filter(!isnan, skipmissing(z2.QSOcont_alpha))))
-medianz3 = @sprintf("%.2f",median(filter(!isnan, skipmissing(z3.QSOcont_alpha))))
-medianzall = @sprintf("%.2f",median(filter(!isnan, skipmissing(qualcut.QSOcont_alpha))))
+medianz1 = @sprintf("%.2f",median(z1.QSOcont_alpha))
+medianz2 = @sprintf("%.2f",median(z2.QSOcont_alpha))
+medianz3 = @sprintf("%.2f",median(z3.QSOcont_alpha))
+medianzall = @sprintf("%.2f",median(df[qc.good, :QSOcont_alpha]))
 
 #Ploting histograms
-alphacut = @df qualcut stephist(:QSOcont_alpha, label=L"$0.01<z<4.7$", bins=20, guidefontsize=16, tickfontsize=16, legendfontsize=14, fill=false, color=:black, fillcolor=:black, legend=:topright, grid=false, framestyle=:box)
-
-alpha22 = @df z1 stephist!(:QSOcont_alpha, label=L"$z<1$", bins=20, guidefontsize=14, tickfontsize=14, legendfontsize=14, fill=true, color=:tomato1, fillcolor=:tomato1, grid=false, framestyle=:box, fillalpha=0.8, z_order=2)
-
-alpha1 = @df z2 stephist!(:QSOcont_alpha, label=L"$1<z<2$", bins=20, guidefontsize=16, tickfontsize=16, legendfontsize=14, fill=true, color=:darkolivegreen, fillcolor=:darkolivegreen, legend=:topright, grid=false, framestyle=:box, fillalpha=1, z_order=3)
-
-alpha2 = @df z1 stephist!(:QSOcont_alpha, label="", bins=20, guidefontsize=14, tickfontsize=14, legendfontsize=14, fill=true, color=:tomato1, fillcolor=:tomato1, grid=false, framestyle=:box, alpha=0.6, z_order=4)
-
-alpha3 = @df z3 stephist!(:QSOcont_alpha, label=L"$z>2$", bins=20, guidefontsize=14, tickfontsize=14, legendfontsize=12, fill=true, color=:lightblue2, fillcolor=:lightblue2, grid=false, framestyle=:box, alpha=0.8, z_order=5)
-
-
+kws = (guidefontsize=16, tickfontsize=16, legendfontsize=14, fill=true, fillalpha=0.6, legend=:topright, grid=true, framestyle=:box)
+stephist(df[qc.good, :QSOcont_alpha], label=L"$\mathrm{Merged\,sample}$", bins=20, color=palette[4], fillcolor=palette[4]; kws...)
+stephist!(z1.QSOcont_alpha          , label=L"$z < 1$"                  , bins=20, color=palette[1], fillcolor=palette[1]; kws...)
+stephist!(z2.QSOcont_alpha          , label=L"$1 < z < 2$"              , bins=20, color=palette[2], fillcolor=palette[2]; kws..., z_order=2)
+stephist!(z3.QSOcont_alpha          , label=L"$z > 2$"                  , bins=20, color=palette[3], fillcolor=palette[3]; kws...)
 
 #Plotting vertical lines for the medians
-MEDIANIE = vline!([median(filter(!isnan, skipmissing(qualcut.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda} = %$medianzall", color=:black, linewidth = 2, thickness_scalling =1, linestyle=:solid, z_order=6)
-
-z11 = vline!([median(filter(!isnan, skipmissing(z1.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda,\,z<1} = %$medianz1", color=:darkred, linewidth = 3, thickness_scalling =1, linestyle=:dash, z_order=7)
-
-z22 = vline!([median(filter(!isnan, skipmissing(z2.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda, \, 1<z<2}= %$medianz2", color=:green, linewidth = 3, thickness_scalling =1, linestyle=:dot, z_order=8)
-
-z33 = vline!([median(filter(!isnan, skipmissing(z3.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda,\,z>2} = %$medianz3", color=:midnightblue, linewidth = 3, thickness_scalling =1, linestyle=:dashdot, z_order=9)
-
+# MEDIANIE = vline!([median(filter(!isnan, skipmissing(qualcut.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda} = %$medianzall", color=:black, linewidth = 2, thickness_scalling =1, linestyle=:solid, z_order=6)
+# z11 = vline!([median(filter(!isnan, skipmissing(z1.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda,\,z<1} = %$medianz1", color=:darkred, linewidth = 3, thickness_scalling =1, linestyle=:dash, z_order=7)
+# z22 = vline!([median(filter(!isnan, skipmissing(z2.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda, \, 1<z<2}= %$medianz2", color=:green, linewidth = 3, thickness_scalling =1, linestyle=:dot, z_order=8)
+# z33 = vline!([median(filter(!isnan, skipmissing(z3.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda,\,z>2} = %$medianz3", color=:midnightblue, linewidth = 3, thickness_scalling =1, linestyle=:dashdot, z_order=9)
 
 plot!(formatter=:latex)
 xlabel!(L"$\alpha_{\lambda}$")
 ylabel!(L"$\mathrm{Counts}$")
-
-savefig(alpha1, "Figures/QSOcont_alpha_Hist_Redshift_2.pdf")
+savefig("Figures/QSOcont_alpha_Hist_Redshift_2.pdf")
 
 #############################################################################
 #############################################################################
@@ -178,19 +167,12 @@ savefig(alpha1, "Figures/QSOcont_alpha_Hist_Redshift_2.pdf")
 
 # Chi2 vs SNR plots
 #With Quality cut
-chicut_log = log10.(qualcut.redchisq)
-
-chiSNR = @df df scatter(:redchisq, :DER_SNR, label=L"$\mathrm{Full \,\, sample}$", mc=:salmon, ms=2, markerstrokewidth=0, ma=1, dpi=300, guidefontsize=14, tickfontsize=14, legendfontsize=14, grid=false, framestyle=:box)
-
-chiSNRcut = @df qualcut scatter!(:redchisq, :DER_SNR, label=L"$\mathrm{Good \,\, sample}$", mc=:royalblue3, markershape=:rect, ms=4, ma=1, dpi=300, guidefontsize=16, tickfontsize=16, legendfontsize=14, grid=false, framestyle=:box)
-
-title!(L"$\mathrm{\textbf{\textit{Euclid} \,\, spectra}}$")
+scatter(df.redchisq, df.DER_SNR, label=L"$\mathrm{Full \,\, sample}$", mc=palette[1], ms=2, markerstrokewidth=0, dpi=300, guidefontsize=14, tickfontsize=14, legendfontsize=14, grid=false, framestyle=:box)
+scatter!(df[qc.good, :redchisq], df[qc.good, :DER_SNR], label=L"$\mathrm{Good \,\, sample}$", mc=:royalblue3, ma=0.6, markershape=:circ, ms=4)
 plot!(formatter=:latex, xaxis=:log10, yaxis=:log10)
-plot!(xticks=([1, 2, 5, 10, 20, 50, 100, 500, 2000, 10000],[L"$1$",L"$2$",L"$5$", L"$10$",L"$20$",L"$50$", L"$100$", L"$500$", L"$2000$", L"$10000$"]), yticks=([1, 2, 5, 10, 20, 50, 100],[L"$1$",L"$2$",L"$5$", L"$10$",L"$20$",L"$50$", L"$100$"]))
-xlabel!(L"$\mathrm{reduced} \,\, \chi^2$")
-ylabel!(L"$\mathrm{S/N_{spectrum}}$")
-
-savefig(chiSNR, "Figures/Chi2vsSNR_cut_Fig.pdf")
+xlabel!(L"$\mathrm{Reduced} \,\, \chi^2$")
+ylabel!(L"$\mathrm{Spectrum\ S/N}$")
+savefig("Figures/Chi2vsSNR_cut_Fig.pdf")
 
 #############################################################################
 #############################################################################
