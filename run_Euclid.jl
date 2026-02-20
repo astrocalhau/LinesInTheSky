@@ -176,7 +176,7 @@ function run_Euclid()
     # Write results in a FITS file
     write_fits("$(output_path)/QSFIT_RESULTS.fits", results)
 
-    return input_path, output_path#, catalog, results
+    return input_path, output_path, catalog, results
 end
 
 # input_path, output_path, catalog, results = run_Euclid()
