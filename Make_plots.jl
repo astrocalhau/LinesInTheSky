@@ -1,4 +1,4 @@
-using CSV, Statistics, Plots, StatsPlots, LaTeXStrings, DataFrames, FITSIO, StatsBase, GLM, Printf, Dierckx, QSFit, JSON, QSFit.QSORecipes, SortMerge
+using CSV, Statistics, Plots, StatsPlots, LaTeXStrings, DataFrames, FITSIO, StatsBase, GLM, Printf, Dierckx, QSFit, JSON, SortMerge
 
 
 #########################################################################################################
@@ -12,170 +12,119 @@ mkpath("Figures")
 
 ########################### Read CSV table with relevant data ###########################################
 ############################### and loads it to a DataFrame #############################################
-Data = FITS("results_Euclid/QSFIT_RESULTS.fits")
-df = DataFrame(Data[2])
-close(Data)
+f = FITS("results_Euclid/QSFIT_RESULTS.fits")
+df = DataFrame(f[2])
+close(f)
 
-FU = df[df.FU .== 1,:]
-dESI = df[df.DESI .== 1,:]
-QUBRICS = df[df.QUBRICS .== 1,:]
 #############################################################################
-# General Quality cut
-qualcut = df[(df.good .== 1), :] #Sources passing the quality cut
-qualcutFU = df[(df.good .== 1) .&& (df.FU .== 1), :] #Sources passing the quality cut in Fu et al. 2026
-qualcutDESI = df[(df.good .== 1) .&& (df.DESI .== 1), :] #Sources passing the quality cut in DESI
-qualcutQUBRICS = df[(df.good .== 1) .&& (df.QUBRICS .== 1), :] #Sources passing the quality cut in QUBRICS
-hostgal = df[coalesce.(df.Galaxy_norm .>=0, false), :] #Sources where the host galaxy template was fit (regardless of reliability)
+# Identify subsets and quality cut
+ii = (FU      = findall(df.FU .== 1),
+      DESI    = findall(df.DESI .== 1),
+      QUBRICS = findall(df.QUBRICS .== 1),
+      hostgal = findall(df.Galaxy_norm .>=0)) #Sources where the host galaxy template was fit (regardless of reliability)
 
-# Quality cuts for the BH mass plots
-qualcutmassHa = df[(df.good .== 1) .&& coalesce.(df.Ha_br_fwhm.>2000, false) .&& coalesce.(df.Ha_br_fwhm.<15000, false) .&& coalesce(df.Ha_br_reliable .== 1, false), :] #quality cut for Ha-based BH masses
+qc = (good = findall( df.good .== 1),                                         #Sources passing the quality cut
+      Ha   = findall((df.good .== 1)  .&&  (df.Ha_br_reliable .== 1)),        #quality cut for Ha-based BH masses
+      Hb   = findall((df.good .== 1)  .&&  (df.Hb_br_reliable .== 1)),        #quality cut for Hb-based BH masses
+      MgII = findall((df.good .== 1)  .&&  (df.MgII_2798_br_reliable .== 1)), #quality cut for MgII-based BH masses
+      Pab  = findall((df.good .== 1)  .&&  (df.Pab_br_reliable .== 1)),       #quality cut for Pab-based BH masses
+      HeI  = findall((df.good .== 1)  .&&  (df.HeI_10832_br_reliable .== 1))) #quality cut for HeI-based BH masses
 
-qualcutmassHb = df[(df.good .== 1) .&& coalesce.(df.Hb_br_fwhm.>2000, false) .&& coalesce.(df.Hb_br_fwhm.<15000, false) .&& coalesce(df.Hb_br_reliable .== 1, false), :] #quality cut for Hb-based BH masses
-
-qualcutmassMgII = df[(df.good .== 1) .&& coalesce.(df.MgII_2798_br_fwhm.>2000, false) .&& coalesce.(df.MgII_2798_br_fwhm.<15000, false) .&& coalesce(df.MgII_2798_br_reliable .== 1, false), :] #quality cut for MgII-based BH masses
-
-qualcutmassHaHb = df[(df.good .== 1) .&& coalesce.(df.Ha_br_fwhm.>2000, false) .&& coalesce.(df.Ha_br_fwhm.<15000, false) .&& coalesce.(df.Hb_br_fwhm.>2000, false) .&& coalesce.(df.Hb_br_fwhm.<15000, false) .&& coalesce(df.Ha_br_reliable .== 1, false) .&& coalesce(df.Hb_br_reliable .== 1, false), :] #coalesce needed for handling "missing" values. #quality cut for the difference between Ha and Hb-based BH masses
-
-qualcutmassPab = df[(df.good .== 1) .&& coalesce.(df.Pab_br_fwhm.>2000, false) .&& coalesce.(df.Pab_br_fwhm.<15000, false) .&& coalesce(df.Pab_br_reliable .== 1, false), :] #quality cut for Pab-based BH masses
-
-qualcutmassHeI = df[(df.good .== 1) .&& coalesce.(df.HeI_10832_br_fwhm.>2000, false) .&& coalesce.(df.HeI_10832_br_fwhm.<15000, false) .&& coalesce(df.HeI_10832_br_reliable .== 1, false), :] #quality cut for HeI-based BH masses
+palette = [:darkred, :darkgreen, :darkblue, :gray]
 
 #############################################################################
 #############################################################################
 #############################################################################
 
 # Redshift Histogram
-red = @df df stephist(:Redshift, label=L"$\mathrm{Merged \, \, sample}$", normalize=false, guidefontsize=14, tickfontsize=14, legendfontsize=12, fillalpha=1, bins=40, color=:tomato1, fillcolor=:tomato1, grid=false, framestyle=:box, fill=true)
-Fu = @df FU stephist!(:Redshift, label=L"$\mathrm{Fu \,\, et \,\, al. \,\, (in \,\, prep)}$", normalize=false, guidefontsize=14, tickfontsize=14, legendfontsize=12, fillalpha=1, bins=30,  color=:royalblue4, fillcolor=:royalblue4, grid=false, framestyle=:box, fill=true)
-Des = @df dESI stephist!(:Redshift, label=L"$\mathrm{DESI}$", normalize=false, guidefontsize=14, tickfontsize=14, legendfontsize=12, fillalpha=1, bins=30,  color=:lightblue1, fillcolor=:lightblue1, grid=false, framestyle=:box, fill=true)
-Qub = @df QUBRICS stephist!(:Redshift, label=L"$\mathrm{QUBRICS}$", normalize=false, guidefontsize=16, tickfontsize=16, legendfontsize=14, fillalpha=1, bins=30,  color=:skyblue2, fillcolor=:skyblue2, grid=false, framestyle=:box, fill=true)
-
+kws = (normalize=false, guidefontsize=16, tickfontsize=16, legendfontsize=14, fillalpha=0.6, alpha=1, grid=true, framestyle=:box, fill=true)
+stephist( df[:         , :Redshift], label=L"$\mathrm{Merged \, \, sample}$"                    , bins=30, color=palette[1], fillcolor=palette[1]; kws...)
+stephist!(df[ii.FU     , :Redshift], label=L"$\mathrm{Fu \,\, et \,\, al. \,\, (in \,\, prep)}$", bins=30, color=palette[2], fillcolor=palette[2]; kws...)
+stephist!(df[ii.DESI   , :Redshift], label=L"$\mathrm{DESI}$"                                   , bins=30, color=palette[3], fillcolor=palette[3]; kws...)
+stephist!(df[ii.QUBRICS, :Redshift], label=L"$\mathrm{QUBRICS}$"                                , bins=30, color=palette[4], fillcolor=palette[4]; kws...)
 title!(L"$\mathrm{\textbf{Full \,\, sample}}$")
 plot!(formatter=:latex)
 xlabel!(L"$z$")
 ylabel!(L"$\mathrm{Counts}$")
-
-savefig(red, "Figures/Redshift_Hist_Figure.pdf")
+savefig("Figures/Redshift_Hist_Figure.pdf")
 
 #############################################################################
-
-# Redshift Histogram
-
-red = @df qualcut stephist(:Redshift, label=L"$\mathrm{Merged \, \, sample}$", normalize=false, guidefontsize=14, tickfontsize=14, legendfontsize=12, alpha=1, bins=40, color=:tomato1, fillcolor=:tomato1, grid=false, framestyle=:box, fill=true)
-Fu = @df qualcutFU stephist!(:Redshift, label=L"$\mathrm{Fu \,\, et \,\, al. \,\, (in \,\, prep)}$", normalize=false, guidefontsize=14, tickfontsize=14, legendfontsize=12, alpha=1, bins=30, color=:royalblue3, fillcolor=:royalblue3, grid=false, framestyle=:box, fill=true)
-Des = @df qualcutDESI stephist!(:Redshift, label=L"$\mathrm{DESI}$", normalize=false, guidefontsize=14, tickfontsize=14, legendfontsize=12, alpha=1, bins=30, color=:lightblue1, fillcolor=:lightblue1, grid=false, framestyle=:box, fill=true)
-Qub = @df qualcutQUBRICS stephist!(:Redshift, label=L"$\mathrm{QUBRICS}$", normalize=false, guidefontsize=16, tickfontsize=16, legendfontsize=14, alpha=1, bins=20, color=:skyblue2, fillcolor=:skyblue2, grid=false, framestyle=:box, fill=true)
-
+stephist( df[                      qc.good , :Redshift], label=L"$\mathrm{Merged \, \, sample}$"                    , bins=30, color=palette[1], fillcolor=palette[1]; kws...)
+stephist!(df[intersect(ii.FU     , qc.good), :Redshift], label=L"$\mathrm{Fu \,\, et \,\, al. \,\, (in \,\, prep)}$", bins=30, color=palette[2], fillcolor=palette[2]; kws...)
+stephist!(df[intersect(ii.DESI   , qc.good), :Redshift], label=L"$\mathrm{DESI}$"                                   , bins=30, color=palette[3], fillcolor=palette[3]; kws...)
+stephist!(df[intersect(ii.QUBRICS, qc.good), :Redshift], label=L"$\mathrm{QUBRICS}$"                                , bins=30, color=palette[4], fillcolor=palette[4]; kws...)
 title!(L"$\mathrm{\textbf{Good\,\, sample}}$")
-plot!(formatter=:latex)
 xlabel!(L"$z$")
 ylabel!(L"$\mathrm{Counts}$")
-
-savefig(red, "Figures/Redshift_Hist_Quality_Figure.pdf")
+plot!(formatter=:latex)
+savefig("Figures/Redshift_Hist_Quality_Figure.pdf")
 
 #############################################################################
 #############################################################################
 #############################################################################
 # All three main BH mass histograms as subplots
+
+function add_Median_Mad(vv)
+    mm = median(vv)
+    ss = mad(vv, normalize=true)
+    smm = @sprintf("%.2f", mm)
+    sss = @sprintf("%.2f", ss)
+    vline!([median(vv)]               , label=L"$\mathrm{Median} \pm \mathrm{MAD}: %$smm \pm %$sss $", color=:black, linewidth=3)
+    vline!( median(vv) .+ [1,-1] .* ss, label=""                                                     , color=:black, linewidth=2, linestyle=:dash)
+end
+
+kws = (titlefontsize=20, guidefontsize=20, tickfontsize=16, legendfontsize=16,
+       fill=true, color=:royalblue4, grid=true, framestyle=:box, fillalpha=0.8,
+       legend=:outertop, background_color_legend=nothing, foreground_color_legend=nothing, legend_column=-1,
+       label="", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", xlims=[6,11])
+
 #################################################
-	#MgII
-massescutMgII = @df qualcutmassMgII stephist(:MBH_MgII_WuShen2022, label=L"$\mathrm{MgII}$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=5, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft, fill=true)
-
-xlims!(6,11)
-
-MEDIANMG = median(filter(!isnan, skipmissing(qualcutmassMgII.MBH_MgII_WuShen2022)))
-madnorm = mad(filter(!isnan, skipmissing(qualcutmassMgII.MBH_MgII_WuShen2022)), normalize=true)
-
-number = @sprintf("%.2f", MEDIANMG)
-madnumber = @sprintf("%.2f", madnorm)
-annotate!([7.5], [7.5], text(L"$\mathrm{median} = %$number $", 39, :black, rotation=0))
-annotate!([7.5], [4.5], text(L"$\mathrm{MAD} = %$madnumber $", 39, :black , rotation=0))
-
-		#Statistics
-MEAN = mean(filter(!isnan, skipmissing(qualcutmassMgII.MBH_MgII_WuShen2022)))
-
-##########################################
-	#Comparison between Ha and Hb
-mdif = df.MBH_Ha_ShenLiu2012 .- df.MBH_Hb_WuShen2022
-mdifcut = qualcut.MBH_Ha_ShenLiu2012.-qualcut.MBH_Hb_WuShen2022
-
-massescutHaHb = @df qualcutmassHaHb stephist(mdifcut, label="", xlabel=L"$\log_{10}(M_{\mathrm{BH},\,\mathrm{H}\alpha}/\mathrm{M_{\odot}})-\log_{10}(M_{\mathrm{BH},\,\mathrm{H}\beta}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", xguidefontsize=35,yguidefontsize=45, tickfontsize=10, legendfontsize=6, bins=10, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft, fill=true)
-#ylims!(0,15)
-xlims!(-3.4,2.4)
-MEDIANHaHb = median(filter(!isnan, skipmissing(mdifcut)))
-Meanhahb = mean(filter(!isnan, skipmissing(mdifcut)))
-madnormHaHb = mad(filter(!isnan, skipmissing(mdifcut)), normalize=true)
-number = @sprintf("%.2f", MEDIANHaHb)
-madnumber = @sprintf("%.2f", madnormHaHb)
-
-annotate!([-2.], [60], text(L"$\mathrm{median} = %$number $", 35, :black, rotation=0))
-annotate!([-2.], [40], text(L"$\mathrm{MAD} = %$madnumber $", 35, :black , rotation=0))
+# MgII
+vv = filter(!isnan, df[qc.MgII, :MBH_MgII_WuShen2022])
+stephist(vv, bins=5; kws...)
+add_Median_Mad(vv)
+annotate!([6.5], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{MgII}$", 20, :black , rotation=0))
+plot!(formatter=:latex);  savefig("Figures/BH_mass_MgII.pdf")
 
 ############################################
-	#Halpha
-massescutHa = @df qualcutmassHa stephist(:MBH_Ha_ShenLiu2012, label=L"$\mathrm{H}\alpha$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=15, fill=true, color=:royalblue3, legend=:topleft, grid=false, framestyle=:box)
-
-xlims!(6,11)
-MEDIANHa = median(filter(!isnan, skipmissing(qualcutmassHa.MBH_Ha_ShenLiu2012)))
-madnorm = mad(filter(!isnan, skipmissing(qualcutmassHa.MBH_Ha_ShenLiu2012)), normalize=true)
-
-number = @sprintf("%.2f", MEDIANHa)
-madnumber = @sprintf("%.2f", madnorm)
-
-annotate!([7.2], [150], text(L"$\mathrm{median} = %$number $", 39, :black, rotation=0))
-annotate!([7.2], [100], text(L"$\mathrm{MAD} = %$madnumber $", 39, :black , rotation=0))
+# Halpha
+vv = filter(!isnan, df[qc.Ha, :MBH_Ha_ShenLiu2012])
+stephist(vv, bins=15; kws...)
+add_Median_Mad(vv)
+annotate!([6.5], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{H}\alpha$", 20, :black , rotation=0))
+plot!(formatter=:latex);  savefig("Figures/BH_mass_Ha.pdf")
 
 ###############################################
-	#Hbeta
-massescutHb = @df qualcutmassHb stephist(:MBH_Hb_WuShen2022, label=L"$\mathrm{H}\beta$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=10, fill=true, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft)
-
-xlims!(6,11)
-MEDIANHb = median(filter(!isnan, skipmissing(qualcutmassHb.MBH_Hb_WuShen2022)))
-madnorm = mad(filter(!isnan, skipmissing(qualcutmassHb.MBH_Hb_WuShen2022)), normalize=true)
-
-number = @sprintf("%.2f", MEDIANHb)
-madnumber = @sprintf("%.2f", madnorm)
-
-annotate!([7.2], [75], text(L"$\mathrm{median} = %$number $", 39, :black, rotation=0))
-annotate!([7.2], [50], text(L"$\mathrm{MAD} = %$madnumber $", 39, :black , rotation=0))
+# Hbeta
+vv = filter(!isnan, df[qc.Hb, :MBH_Hb_WuShen2022])
+stephist(vv, bins=10; kws...)
+add_Median_Mad(vv)
+annotate!([6.5], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{H}\beta$", 20, :black , rotation=0))
+plot!(formatter=:latex);  savefig("Figures/BH_mass_Hb.pdf")
 
 ##################################################
-	#Pab
-massescutPab = @df qualcutmassPab stephist(:MBH_Pab_Ricci, label=L"$\mathrm{Pa}\beta$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=5, fill=true, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft)
-
-xlims!(6,11)
-MEDIANPab = median(filter(!isnan, skipmissing(qualcutmassPab.MBH_Pab_Ricci)))
-madnorm = mad(filter(!isnan, skipmissing(qualcutmassPab.MBH_Pab_Ricci)), normalize=true)
-
-number = @sprintf("%.2f", MEDIANPab)
-madnumber = @sprintf("%.2f", madnorm)
-
-annotate!([10], [20], text(L"$\mathrm{median} = %$number $", 35, :black, rotation=0))
-annotate!([10], [15], text(L"$\mathrm{MAD} = %$madnumber $", 35, :black , rotation=0))
-
+# Pab
+vv = filter(!isnan, df[qc.Pab, :MBH_Pab_Ricci])
+stephist(vv, bins=5; kws...)
+add_Median_Mad(vv)
+annotate!([6.5], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{Pa}\beta$", 20, :black , rotation=0))
+plot!(formatter=:latex);  savefig("Figures/BH_mass_Pab.pdf")
 
 ##################################################
-	#HeI
-massescutHeI = @df qualcutmassHeI stephist(:MBH_HeI_Ricci, label=L"$\mathrm{He\,I}$", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", guidefontsize=45, tickfontsize=10, legendfontsize=8, bins=10, fill=true, color=:royalblue3, grid=false, framestyle=:box, legend=:topleft)
+# HeI
+vv = filter(!isnan, df[qc.HeI, :MBH_HeI_Ricci])
+stephist(vv, bins=10; kws...)
+add_Median_Mad(vv)
+annotate!([6.5], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{He\,I}$", 20, :black , rotation=0))
+plot!(formatter=:latex);  savefig("Figures/BH_mass_HeI.pdf")
 
-xlims!(6,11)
-MEDIANHeI = median(filter(!isnan, skipmissing(qualcutmassHeI.MBH_HeI_Ricci)))
-madnorm = mad(filter(!isnan, skipmissing(qualcutmassHeI.MBH_HeI_Ricci)), normalize=true)
-
-number = @sprintf("%.2f", MEDIANHeI)
-madnumber = @sprintf("%.2f", madnorm)
-
-annotate!([10], [50], text(L"$\mathrm{median} = %$number $", 35, :black, rotation=0))
-annotate!([10], [40], text(L"$\mathrm{MAD} = %$madnumber $", 35, :black , rotation=0))
-
-	# Creating the subplot grid for final image
-#Allmass = plot(massescutHa, massescutHb, massescutMgII, massescutHaHb, layout=4, annotationfontsize=8, guidefontsize=8, tickfontsize=8, legendfontsize=8, titlefontsize=10)
-#plot!(formatter=:latex)
-#savefig(Allmass, "Figures/Figure17.pdf")
-
-BHmass_panel = plot(massescutHa, massescutHb, massescutMgII, massescutPab, massescutHeI, massescutHaHb, layout=grid(2, 3, widths=(1/3, 1/3, 1/3)), size=(3600, 1800), margin=15*Plots.mm,right_margin=22*Plots.mm, left_margin=25*Plots.mm, bottom_margin=30*Plots.mm, titlefontsize=47, tickfontsize=45, legendfontsize=35)
-plot!(formatter=:latex)
-savefig(BHmass_panel, "Figures/BH_mass_hist_all.pdf")
+##########################################
+# Comparison between Ha and Hb
+vv = filter(!isnan, df[intersect(qc.Ha, qc.Hb), :MBH_Ha_ShenLiu2012] .- df[intersect(qc.Ha, qc.Hb), :MBH_Hb_WuShen2022])
+stephist(vv, bins=10; kws..., xlims=[-3,3], xlabel=L"$\log_{10}(M_{\mathrm{H}\alpha}/M_{\mathrm{H}\beta})$")
+add_Median_Mad(vv)
+annotate!([-2], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{H}\alpha\,vs\,\mathrm{H}\beta$", 20, :black , rotation=0))
+plot!(formatter=:latex);  savefig("Figures/BH_mass_Ha_vs_Hb.pdf")
 
 #############################################################################
 #############################################################################
@@ -539,8 +488,8 @@ madnumber = @sprintf("%.2f", madnorm)
 mmean = mean(filter(!isnan, skipmissing(minusHaFWHM)))
 
 #meanline = vline!([mmean], label=L"$\mathrm{mean}$", color="red", linewidth = 3, thickness_scalling =1, linestyle=:dash, z_order=5)
-annotate!([0.65], [30], text(L"$\mathrm{median} = %$number $",22, :black , rotation=0))
-annotate!([0.7], [25], text(L"$\mathrm{MAD} = %$madnumber $",22, :black , rotation=0))
+annotate!([0.65], [30], text(L"$\mathrm{Median}=%$number $",20, :black , rotation=0))
+annotate!([0.65], [27], text(L"$\mathrm{MAD}=%$madnumber $",20, :black , rotation=0))
 
 plot!(formatter=:latex)
 
