@@ -1,6 +1,6 @@
 using Revise
 using Base.Threads, FITSIO, DataFrames, DataStructures, Printf, Statistics, StatsBase, Unitful, TypedJSON
-using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer
+using QSFit, QSFit.QSORecipes, GModelFit, GModelFitViewer, SortMerge
 using SkyCoords, DustExtinction
 using LinesInTheSky
 
@@ -98,9 +98,7 @@ function read_results(output_path, row)
                    :Ha_br, :Ha_na, :Hb_br, :Hb_na, :Pab_br, :HeI_10832_br,
                    :MgII_2798_br, :OIII_4959, :OIII_5007, :OIII_5007_bw])  ||  continue
 
-        out[Symbol(cname, :_reliable)] = Int.(!(cname in keys(res.post[:Issues])  &&
-                                               ((:norm in keys(res.post[:Issues][cname]))  ||
-                                                (:fwhm in keys(res.post[:Issues][cname])))))
+        out[Symbol(cname, :_reliable)] = Int.(!(cname in keys(res.post[:Issues])))
         for (pname, par) in GModelFit.getparams(comp)
             colname = Symbol(cname, :_, pname)
             if isnothing(par.patch)
@@ -163,6 +161,13 @@ function run_Euclid()
     f = FITS("$(input_path)/catalog.fits")
     catalog = DataFrame(f[2])
     close(f)
+
+    # Use redshifts from DESI whenever available
+    f = FITS("input_DESI/Q1_DESI_DR1_QSOAGNVAC_QSO.fits")
+    desi = DataFrame(f[2])
+    close(f)
+    jj = sortmerge(catalog.object_id, desi.object_id)
+    catalog[jj[1], :Z] .= desi[jj[2], :Z]
 
     # Run analysis
     run_analysis(input_path, output_path, catalog)

@@ -1,177 +1,160 @@
 using CSV, Statistics, Plots, StatsPlots, LaTeXStrings, DataFrames, FITSIO, StatsBase, GLM, Printf, Dierckx, QSFit, JSON, SortMerge
 
+######################################################################
+# Script to create the various figures for the Euclid Q1 Paper "Lines in the Sky"
 
-#########################################################################################################
-#													#
-# Script to create the various figures for the Euclid Q1 Paper "Lines in the Sky" 			#
-#													#
-#########################################################################################################
-
-########################### Make folder for figures #####################################################
 mkpath("Figures")
 
-########################### Read CSV table with relevant data ###########################################
-############################### and loads it to a DataFrame #############################################
 f = FITS("results_Euclid/QSFIT_RESULTS.fits")
 df = DataFrame(f[2])
 close(f)
 
-#############################################################################
 # Identify subsets and quality cut
 ii = (FU      = findall(df.FU .== 1),
       DESI    = findall(df.DESI .== 1),
       QUBRICS = findall(df.QUBRICS .== 1),
       hostgal = findall(df.Galaxy_norm .>=0)) #Sources where the host galaxy template was fit (regardless of reliability)
 
-qc = (good = findall( df.good .== 1),                                         #Sources passing the quality cut
-      Ha   = findall((df.good .== 1)  .&&  (df.Ha_br_reliable .== 1)),        #quality cut for Ha-based BH masses
-      Hb   = findall((df.good .== 1)  .&&  (df.Hb_br_reliable .== 1)),        #quality cut for Hb-based BH masses
-      MgII = findall((df.good .== 1)  .&&  (df.MgII_2798_br_reliable .== 1)), #quality cut for MgII-based BH masses
-      Pab  = findall((df.good .== 1)  .&&  (df.Pab_br_reliable .== 1)),       #quality cut for Pab-based BH masses
-      HeI  = findall((df.good .== 1)  .&&  (df.HeI_10832_br_reliable .== 1))) #quality cut for HeI-based BH masses
+qc = (good = findall((df.good .== 1)  .&&  (df.QSOcont_reliable .== 1)),      # sources passing the quality cut
+      Ha   = findall((df.good .== 1)  .&&  (df.Ha_br_reliable .== 1)),        # quality cut for Ha-based BH masses
+      Hb   = findall((df.good .== 1)  .&&  (df.Hb_br_reliable .== 1)),        # quality cut for Hb-based BH masses
+      MgII = findall((df.good .== 1)  .&&  (df.MgII_2798_br_reliable .== 1)), # quality cut for MgII-based BH masses
+      Pab  = findall((df.good .== 1)  .&&  (df.Pab_br_reliable .== 1)),       # quality cut for Pab-based BH masses
+      HeI  = findall((df.good .== 1)  .&&  (df.HeI_10832_br_reliable .== 1))) # quality cut for HeI-based BH masses
 
+# General plot settings
+GEN_OPTS = (formatter=:latex, framestyle=:box, grid=false, thickness_scaling=1.2)
+# , titlefontsize=8, guidefontsize=8, tickfontsize=8, legendfontsize=7
+# , background_color_legend=nothing, foreground_color_legend=nothing, legend_column=-1
 palette = [:darkred, :darkgreen, :darkblue, :gray]
+GEN_FILL_ALPHA = 0.6
+GEN_ALPHA = 1
+
+xscreen(f) = xlims()[1] + (xlims()[2] - xlims()[1]) * f
+yscreen(f) = ylims()[1] + (ylims()[2] - ylims()[1]) * f
+
 
 #############################################################################
-#############################################################################
-#############################################################################
+# Redshift histograms
 
-# Redshift Histogram
-kws = (normalize=false, guidefontsize=16, tickfontsize=16, legendfontsize=14, fillalpha=0.6, alpha=1, grid=true, framestyle=:box, fill=true)
-stephist( df[:         , :Redshift], label=L"$\mathrm{Merged \, \, sample}$"                    , bins=30, color=palette[1], fillcolor=palette[1]; kws...)
-stephist!(df[ii.FU     , :Redshift], label=L"$\mathrm{Fu \,\, et \,\, al. \,\, (in \,\, prep)}$", bins=30, color=palette[2], fillcolor=palette[2]; kws...)
-stephist!(df[ii.DESI   , :Redshift], label=L"$\mathrm{DESI}$"                                   , bins=30, color=palette[3], fillcolor=palette[3]; kws...)
-stephist!(df[ii.QUBRICS, :Redshift], label=L"$\mathrm{QUBRICS}$"                                , bins=30, color=palette[4], fillcolor=palette[4]; kws...)
-title!(L"$\mathrm{\textbf{Full \,\, sample}}$")
-plot!(formatter=:latex)
-xlabel!(L"$z$")
-ylabel!(L"$\mathrm{Counts}$")
+SERIES_OPTS = (bins=0:0.25:maximum(df.Redshift), alpha=GEN_ALPHA, fill=true, fillalpha=GEN_FILL_ALPHA)
+plot(; GEN_OPTS..., title=L"$\mathrm{\textbf{Full\ sample}}$", xlabel=L"$z$", ylabel=L"$\mathrm{Counts}$")
+stephist!(df[:         , :Redshift], label=L"$\mathrm{Merged\ sample}$"          , color=palette[1]; SERIES_OPTS...)
+stephist!(df[ii.FU     , :Redshift], label=L"$\mathrm{Fu\ et\ al.\ (in\ prep.)}$", color=palette[2]; SERIES_OPTS...)
+stephist!(df[ii.DESI   , :Redshift], label=L"$\mathrm{DESI}$"                    , color=palette[3]; SERIES_OPTS...)
+stephist!(df[ii.QUBRICS, :Redshift], label=L"$\mathrm{QUBRICS}$"                 , color=palette[4]; SERIES_OPTS...)
 savefig("Figures/Redshift_Hist_Figure.pdf")
 
-#############################################################################
-stephist( df[                      qc.good , :Redshift], label=L"$\mathrm{Merged \, \, sample}$"                    , bins=30, color=palette[1], fillcolor=palette[1]; kws...)
-stephist!(df[intersect(ii.FU     , qc.good), :Redshift], label=L"$\mathrm{Fu \,\, et \,\, al. \,\, (in \,\, prep)}$", bins=30, color=palette[2], fillcolor=palette[2]; kws...)
-stephist!(df[intersect(ii.DESI   , qc.good), :Redshift], label=L"$\mathrm{DESI}$"                                   , bins=30, color=palette[3], fillcolor=palette[3]; kws...)
-stephist!(df[intersect(ii.QUBRICS, qc.good), :Redshift], label=L"$\mathrm{QUBRICS}$"                                , bins=30, color=palette[4], fillcolor=palette[4]; kws...)
-title!(L"$\mathrm{\textbf{Good\,\, sample}}$")
-xlabel!(L"$z$")
-ylabel!(L"$\mathrm{Counts}$")
-plot!(formatter=:latex)
+plot(; GEN_OPTS..., title=L"$\mathrm{\textbf{Good\ quality\ sample}}$", xlabel=L"$z$", ylabel=L"$\mathrm{Counts}$")
+stephist!(df[                      qc.good , :Redshift], label=L"$\mathrm{Merged\ sample}$"          , color=palette[1]; SERIES_OPTS...)
+stephist!(df[intersect(ii.FU     , qc.good), :Redshift], label=L"$\mathrm{Fu\ et\ al.\ (in\ prep.)}$", color=palette[2]; SERIES_OPTS...)
+stephist!(df[intersect(ii.DESI   , qc.good), :Redshift], label=L"$\mathrm{DESI}$"                    , color=palette[3]; SERIES_OPTS...)
+stephist!(df[intersect(ii.QUBRICS, qc.good), :Redshift], label=L"$\mathrm{QUBRICS}$"                 , color=palette[4]; SERIES_OPTS...)
 savefig("Figures/Redshift_Hist_Quality_Figure.pdf")
 
-#############################################################################
-#############################################################################
-#############################################################################
-# All three main BH mass histograms as subplots
 
-function add_Median_Mad(vv)
-    mm = median(vv)
-    ss = mad(vv, normalize=true)
-    smm = @sprintf("%.2f", mm)
-    sss = @sprintf("%.2f", ss)
-    vline!([median(vv)]               , label=L"$\mathrm{Median} \pm \mathrm{MAD}: %$smm \pm %$sss $", color=:black, linewidth=3)
-    vline!( median(vv) .+ [1,-1] .* ss, label=""                                                     , color=:black, linewidth=2, linestyle=:dash)
+#############################################################################
+# BH mass histograms
+
+function add_details!(vv)
+    μ = median(vv)
+    σ = mad(vv, normalize=true)
+    sμ = @sprintf("%.2f", μ)
+    sσ = @sprintf("%.2f", σ)
+    vline!([median(vv)]              , label="", color=:black, linewidth=3)
+    vline!( median(vv) .+ [1,-1] .* σ, label="", color=:black, linewidth=2, linestyle=:dash)
+    annotate!([xscreen(0.03)], [yscreen(0.9)], text(L"$\tilde{\mu}=%$sμ $"   , 12, :black, :left))
+    annotate!([xscreen(0.03)], [yscreen(0.8)], text(L"$\tilde{\sigma}=%$sσ $", 12, :black, :left))
 end
 
-kws = (titlefontsize=20, guidefontsize=20, tickfontsize=16, legendfontsize=16,
-       fill=true, color=:royalblue4, grid=true, framestyle=:box, fillalpha=0.8,
-       legend=:outertop, background_color_legend=nothing, foreground_color_legend=nothing, legend_column=-1,
-       label="", xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$", xlims=[6,11])
+# Specific plot options
+PLOT_OPTS = (legend=:outertop,
+             thickness_scaling=1.5, xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$")
+SERIES_OPTS = (label="", bins=6:0.5:11, color=:royalblue4, alpha=GEN_ALPHA, fill=true, fillalpha=GEN_FILL_ALPHA)
 
-#################################################
-# MgII
+# MgII 
+plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{MgII}$")
 vv = filter(!isnan, df[qc.MgII, :MBH_MgII_WuShen2022])
-stephist(vv, bins=5; kws...)
-add_Median_Mad(vv)
-annotate!([6.5], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{MgII}$", 20, :black , rotation=0))
-plot!(formatter=:latex);  savefig("Figures/BH_mass_MgII.pdf")
+stephist!(vv; SERIES_OPTS...)
+add_details!(vv)
+savefig("Figures/BH_mass_MgII.pdf")
 
-############################################
 # Halpha
+plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{H}\alpha$")
 vv = filter(!isnan, df[qc.Ha, :MBH_Ha_ShenLiu2012])
-stephist(vv, bins=15; kws...)
-add_Median_Mad(vv)
-annotate!([6.5], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{H}\alpha$", 20, :black , rotation=0))
-plot!(formatter=:latex);  savefig("Figures/BH_mass_Ha.pdf")
+stephist!(vv; SERIES_OPTS...)
+add_details!(vv)
+savefig("Figures/BH_mass_Ha.pdf")
 
-###############################################
 # Hbeta
+plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{H}\beta$")
 vv = filter(!isnan, df[qc.Hb, :MBH_Hb_WuShen2022])
-stephist(vv, bins=10; kws...)
-add_Median_Mad(vv)
-annotate!([6.5], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{H}\beta$", 20, :black , rotation=0))
-plot!(formatter=:latex);  savefig("Figures/BH_mass_Hb.pdf")
+stephist!(vv; SERIES_OPTS...)
+add_details!(vv)
+savefig("Figures/BH_mass_Hb.pdf")
 
-##################################################
 # Pab
+plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{Pa}\beta$")
 vv = filter(!isnan, df[qc.Pab, :MBH_Pab_Ricci])
-stephist(vv, bins=5; kws...)
-add_Median_Mad(vv)
-annotate!([6.5], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{Pa}\beta$", 20, :black , rotation=0))
-plot!(formatter=:latex);  savefig("Figures/BH_mass_Pab.pdf")
+stephist!(vv; SERIES_OPTS...)
+add_details!(vv)
+savefig("Figures/BH_mass_Pab.pdf")
 
-##################################################
 # HeI
+plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{He\,I}$")
 vv = filter(!isnan, df[qc.HeI, :MBH_HeI_Ricci])
-stephist(vv, bins=10; kws...)
-add_Median_Mad(vv)
-annotate!([6.5], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{He\,I}$", 20, :black , rotation=0))
-plot!(formatter=:latex);  savefig("Figures/BH_mass_HeI.pdf")
+stephist!(vv; SERIES_OPTS...)
+add_details!(vv)
+savefig("Figures/BH_mass_HeI.pdf")
 
-##########################################
 # Comparison between Ha and Hb
-vv = filter(!isnan, df[intersect(qc.Ha, qc.Hb), :MBH_Ha_ShenLiu2012] .- df[intersect(qc.Ha, qc.Hb), :MBH_Hb_WuShen2022])
-stephist(vv, bins=10; kws..., xlims=[-3,3], xlabel=L"$\log_{10}(M_{\mathrm{H}\alpha}/M_{\mathrm{H}\beta})$")
-add_Median_Mad(vv)
-annotate!([-2], [ylims()[2] - (ylims()[2] - ylims()[1]) * 0.1], text(L"$\mathrm{H}\alpha\,vs\,\mathrm{H}\beta$", 20, :black , rotation=0))
-plot!(formatter=:latex);  savefig("Figures/BH_mass_Ha_vs_Hb.pdf")
+plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{H}\alpha\ vs\ \mathrm{H}\beta$", xlabel=L"$\log_{10}(M_{\mathrm{H}\alpha}/M_{\mathrm{H}\beta})$")
+i = intersect(qc.Ha, qc.Hb)
+vv = filter(!isnan, df[i, :MBH_Ha_ShenLiu2012] .- df[i, :MBH_Hb_WuShen2022])
+stephist!(vv; SERIES_OPTS..., bins=minimum(vv):0.25:maximum(vv))
+add_details!(vv)
+savefig("Figures/BH_mass_Ha_vs_Hb.pdf")
+
 
 #############################################################################
-#############################################################################
-#############################################################################
-
 # QSO Continuum alpha index histogram
-#With quality cut and redshift separation
-# Creating relevant dataframes for the redshift bins
-z1 = df[intersect(qc.good, findall(      df.Redshift .< 1)), :]
-z2 = df[intersect(qc.good, findall(1 .<= df.Redshift .< 2)), :]
-z3 = df[intersect(qc.good, findall(2 .<= df.Redshift     )), :]
 
-#Estimating medians for the bins
-medianz1 = @sprintf("%.2f",median(z1.QSOcont_alpha))
-medianz2 = @sprintf("%.2f",median(z2.QSOcont_alpha))
-medianz3 = @sprintf("%.2f",median(z3.QSOcont_alpha))
-medianzall = @sprintf("%.2f",median(df[qc.good, :QSOcont_alpha]))
+# Redshift bins
+i0 = intersect(qc.good)
+i1 = intersect(qc.good, findall(      df.Redshift .< 1))
+i2 = intersect(qc.good, findall(1 .<= df.Redshift .< 2))
+i3 = intersect(qc.good, findall(2 .<= df.Redshift     ))
 
-#Ploting histograms
-kws = (guidefontsize=16, tickfontsize=16, legendfontsize=14, fill=true, fillalpha=0.6, legend=:topright, grid=true, framestyle=:box)
-stephist(df[qc.good, :QSOcont_alpha], label=L"$\mathrm{Merged\,sample}$", bins=20, color=palette[4], fillcolor=palette[4]; kws...)
-stephist!(z1.QSOcont_alpha          , label=L"$z < 1$"                  , bins=20, color=palette[1], fillcolor=palette[1]; kws...)
-stephist!(z2.QSOcont_alpha          , label=L"$1 < z < 2$"              , bins=20, color=palette[2], fillcolor=palette[2]; kws..., z_order=2)
-stephist!(z3.QSOcont_alpha          , label=L"$z > 2$"                  , bins=20, color=palette[3], fillcolor=palette[3]; kws...)
+function add_details!(vv, label, color, SERIES_OPTS; kws...)
+    μ = median(vv)
+    σ = mad(vv, normalize=true)
+    sμ = @sprintf("%.2f", μ)
+    sσ = @sprintf("%.2f", σ)
+    stephist!(vv, label=label * L"\ (\tilde{\mu}=%$sμ)", color=color; SERIES_OPTS..., kws...)
+    vline!([median(vv)], label="", color=color, linewidth=2, linestyle=:dash)
+end
 
-#Plotting vertical lines for the medians
-# MEDIANIE = vline!([median(filter(!isnan, skipmissing(qualcut.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda} = %$medianzall", color=:black, linewidth = 2, thickness_scalling =1, linestyle=:solid, z_order=6)
-# z11 = vline!([median(filter(!isnan, skipmissing(z1.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda,\,z<1} = %$medianz1", color=:darkred, linewidth = 3, thickness_scalling =1, linestyle=:dash, z_order=7)
-# z22 = vline!([median(filter(!isnan, skipmissing(z2.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda, \, 1<z<2}= %$medianz2", color=:green, linewidth = 3, thickness_scalling =1, linestyle=:dot, z_order=8)
-# z33 = vline!([median(filter(!isnan, skipmissing(z3.QSOcont_alpha)))], label=L"\mathrm{m}\, \alpha_{\lambda,\,z>2} = %$medianz3", color=:midnightblue, linewidth = 3, thickness_scalling =1, linestyle=:dashdot, z_order=9)
+PLOT_OPTS = (legend=:topright, xlabel=L"$\alpha_{\lambda}$", ylabel=L"$\mathrm{Counts}$")
+SERIES_OPTS = (bins=minimum(df.QSOcont_alpha):0.25:maximum(df.QSOcont_alpha), alpha=GEN_ALPHA, fill=true, fillalpha=GEN_FILL_ALPHA)
 
-plot!(formatter=:latex)
-xlabel!(L"$\alpha_{\lambda}$")
-ylabel!(L"$\mathrm{Counts}$")
+#Plot histograms
+plot(; GEN_OPTS..., PLOT_OPTS...)
+add_details!(df[i0, :QSOcont_alpha], L"$\mathrm{Merged\ sample}$", palette[4], SERIES_OPTS)
+add_details!(df[i1, :QSOcont_alpha], L"$z < 1$"                  , palette[1], SERIES_OPTS)
+add_details!(df[i2, :QSOcont_alpha], L"$1 < z < 2$"              , palette[2], SERIES_OPTS; z_order=2)
+add_details!(df[i3, :QSOcont_alpha], L"$z > 2$"                  , palette[3], SERIES_OPTS)
 savefig("Figures/QSOcont_alpha_Hist_Redshift_2.pdf")
 
-#############################################################################
-#############################################################################
-#############################################################################
 
+#############################################################################
 # Chi2 vs SNR plots
-#With Quality cut
-scatter(df.redchisq, df.DER_SNR, label=L"$\mathrm{Full \,\, sample}$", mc=palette[1], ms=2, markerstrokewidth=0, dpi=300, guidefontsize=14, tickfontsize=14, legendfontsize=14, grid=false, framestyle=:box)
+
+PLOT_OPTS = (xlabel=L"$\mathrm{Reduced}\ \chi^2$", ylabel=L"$\mathrm{Spectrum\ S/N}$")
+
+plot(; GEN_OPTS..., PLOT_OPTS...)
+scatter!(df[:,       :redchisq], df[:      , :DER_SNR], label=L"$\mathrm{Full\ sample}$"    , mc=palette[1] , ms=2, markerstrokewidth=0)
 scatter!(df[qc.good, :redchisq], df[qc.good, :DER_SNR], label=L"$\mathrm{Good \,\, sample}$", mc=:royalblue3, ma=0.6, markershape=:circ, ms=4)
-plot!(formatter=:latex, xaxis=:log10, yaxis=:log10)
-xlabel!(L"$\mathrm{Reduced} \,\, \chi^2$")
-ylabel!(L"$\mathrm{Spectrum\ S/N}$")
+plot!(xaxis=:log10, yaxis=:log10)
 savefig("Figures/Chi2vsSNR_cut_Fig.pdf")
 
 #############################################################################
@@ -448,7 +431,7 @@ qualcut = dfmatched[coalesce.(dfmatched.good .== 1, false) .&& coalesce.(dfDESIm
 qualcutDESI = dfDESImatched[coalesce.(dfmatched.good .== 1, false) .&& coalesce.(dfDESImatched.good .== 1, false) .&& coalesce.(dfmatched.Ha_br_fwhm .> 2000., false) .&& coalesce.(dfmatched.Ha_br_fwhm .< 15000., false) .&& coalesce.(dfDESImatched.MgII_2798_br_fwhm .> 2000., false) .&& coalesce.(dfDESImatched.MgII_2798_br_fwhm .< 15000.,false),:]
 
 
-HaFWHM_cut = dfmatched[(dfmatched.good .== 1) .&& coalesce.(dfmatched.Ha_br_fwhm .>2000, false) .&& coalesce.(dfmatched.Ha_br_fwhm .<15000, false),:] #coalesce is needed for 
+HaFWHM_cut = dfmatched[(dfmatched.good .== 1) .&& coalesce.(dfmatched.Ha_br_fwhm .>2000, false) .&& coalesce.(dfmatched.Ha_br_fwhm .<15000, false),:] #coalesce is needed for
 
 
 ######################################################################################
@@ -672,7 +655,3 @@ xlims!(42.5,49)
 AllSDSS = plot(MBHPabZcut, MBHHaZcutbol, layout=grid(1, 2, widths=(4/8, 4/8)), size=(1600,600), margin=5*Plots.mm, left_margin=10*Plots.mm, bottom_margin=13*Plots.mm, titlefontsize=22, guidefontsize=22, tickfontsize=22, legendfontsize=20, annotationfontsize=20)
 plot!(formatter=:latex)
 savefig(AllSDSS, "Figures/MBH_SDSS_all.png")
-
-
-
-
