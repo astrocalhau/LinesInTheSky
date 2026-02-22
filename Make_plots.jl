@@ -23,7 +23,7 @@ qc = (good = findall((df.good .== 1)  .&&  (df.QSOcont_reliable .== 1)),      # 
       HeI  = findall((df.good .== 1)  .&&  (df.HeI_10832_br_reliable .== 1))) # quality cut for HeI-based BH masses
 
 # General plot settings
-GEN_OPTS = (fontfamily="Computer Modern", framestyle=:box, grid=false, thickness_scaling=1.2)
+GEN_OPTS = (fontfamily="Computer Modern", framestyle=:box, grid=false, background_color_legend=nothing, foreground_color_legend=nothing, thickness_scaling=1.2)
 # , titlefontsize=8, guidefontsize=8, tickfontsize=8, legendfontsize=7
 # , background_color_legend=nothing, foreground_color_legend=nothing, legend_column=-1
 palette = [:darkred, :darkgreen, :darkblue, :gray, :purple]
@@ -57,63 +57,34 @@ end
 ######################################################################
 # BH mass histograms
 let
-    function add_details!(vv)
+    function add_details!(vv; x=0.03, y1=0.8, y2=0.6)
         μ = median(vv)
         σ = mad(vv, normalize=true)
         sμ = @sprintf("%.2f", μ)
         sσ = @sprintf("%.2f", σ)
         vline!([median(vv)]              , label="", color=:black, linewidth=3)
         vline!( median(vv) .+ [1,-1] .* σ, label="", color=:black, linewidth=2, linestyle=:dash)
-        annotate!([xfraction(0.03)], [yfraction(0.9)], text(L"$\tilde{\mu}=%$sμ $"   , 12, :black, :left))
-        annotate!([xfraction(0.03)], [yfraction(0.8)], text(L"$\tilde{\sigma}=%$sσ $", 12, :black, :left))
+        annotate!([xfraction(x)], [yfraction(y1)], text(L"$\tilde{\mu}=%$sμ $"   , 10, :black, :left))
+        annotate!([xfraction(x)], [yfraction(y2)], text(L"$\tilde{\sigma}=%$sσ $", 10, :black, :left))
     end
 
-    # Specific plot options
-    PLOT_OPTS = (legend=:outertop,
-                 thickness_scaling=1.5, xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$")
-    SERIES_OPTS = (label="", bins=6:0.5:11, color=:royalblue4, HISTO_OPTS...)
-
-    # MgII
-    plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{MgII}$")
-    vv = filter(!isnan, df[qc.MgII, :MBH_MgII_WuShen2022])
-    stephist!(vv; SERIES_OPTS...)
-    add_details!(vv)
-    savefig("Figures/BH_mass_MgII.pdf")
-
-    # Halpha
-    plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{H}\alpha$")
-    vv = filter(!isnan, df[qc.Ha, :MBH_Ha_ShenLiu2012])
-    stephist!(vv; SERIES_OPTS...)
-    add_details!(vv)
-    savefig("Figures/BH_mass_Ha.pdf")
-
-    # Hbeta
-    plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{H}\beta$")
-    vv = filter(!isnan, df[qc.Hb, :MBH_Hb_WuShen2022])
-    stephist!(vv; SERIES_OPTS...)
-    add_details!(vv)
-    savefig("Figures/BH_mass_Hb.pdf")
-
-    # Pab
-    plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{Pa}\beta$")
-    vv = filter(!isnan, df[qc.Pab, :MBH_Pab_Ricci])
-    stephist!(vv; SERIES_OPTS...)
-    add_details!(vv)
-    savefig("Figures/BH_mass_Pab.pdf")
-
-    # HeI
-    plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{He\,I}$")
-    vv = filter(!isnan, df[qc.HeI, :MBH_HeI_Ricci])
-    stephist!(vv; SERIES_OPTS...)
-    add_details!(vv)
-    savefig("Figures/BH_mass_HeI.pdf")
+    SERIES_OPTS = (bins=6.:0.5:10.5, HISTO_OPTS...,
+                   bottom_margin=(-3.5, :mm), top_margin=(-1.5, :mm)) # <-- these are necessary to reduce space between the subplots
+    accum = Vector{Any}()
+    vv = filter(!isnan, df[qc.MgII, :MBH_MgII_WuShen2022]); push!(accum, stephist(vv, label=L"$\mathrm{MgII}$"   , color=palette[1]; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
+    vv = filter(!isnan, df[qc.Hb  , :MBH_Hb_WuShen2022])  ; push!(accum, stephist(vv, label=L"$\mathrm{H}\beta$" , color=palette[2]; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
+    vv = filter(!isnan, df[qc.Ha  , :MBH_Ha_ShenLiu2012]) ; push!(accum, stephist(vv, label=L"$\mathrm{H}\alpha$", color=palette[3]; SERIES_OPTS..., xformatter=_->"", ylabel=L"$\mathrm{Counts}$")); add_details!(vv)
+    vv = filter(!isnan, df[qc.HeI , :MBH_HeI_Ricci])      ; push!(accum, stephist(vv, label=L"$\mathrm{He\,I}$"  , color=palette[4]; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
+    vv = filter(!isnan, df[qc.Pab , :MBH_Pab_Ricci])      ; push!(accum, stephist(vv, label=L"$\mathrm{Pa}\beta$", color=palette[5]; SERIES_OPTS..., xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", bottom_margin=(-1., :mm))); add_details!(vv)
+    plot(accum..., layout=grid(length(accum), 1); GEN_OPTS..., legend=:topright)
+    savefig("Figures/BH_mass.pdf")
 
     # Comparison between Ha and Hb
-    plot(; GEN_OPTS..., PLOT_OPTS..., title=L"$\mathrm{H}\alpha\ vs\ \mathrm{H}\beta$", xlabel=L"$\log_{10}(M_{\mathrm{H}\alpha}/M_{\mathrm{H}\beta})$")
+    plot(; GEN_OPTS..., xlabel=L"$\log_{10}(M_{\mathrm{H}\alpha}/M_{\mathrm{H}\beta})$", ylabel=L"$\mathrm{Counts}$")
     i = intersect(qc.Ha, qc.Hb)
     vv = filter(!isnan, df[i, :MBH_Ha_ShenLiu2012] .- df[i, :MBH_Hb_WuShen2022])
-    stephist!(vv; SERIES_OPTS..., bins=minimum(vv):0.25:maximum(vv))
-    add_details!(vv)
+    stephist!(vv, label=L"$\mathrm{H}\alpha\ vs\ \mathrm{H}\beta$", bins=minimum(vv):0.25:maximum(vv); color=:royalblue4, HISTO_OPTS...)
+    add_details!(vv, y1=0.8, y2=0.7)
     savefig("Figures/BH_mass_Ha_vs_Hb.pdf")
 end
 
