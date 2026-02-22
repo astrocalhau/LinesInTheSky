@@ -13,6 +13,7 @@ close(f)
 ii = (FU      = findall(df.FU .== 1),
       DESI    = findall(df.DESI .== 1),
       QUBRICS = findall(df.QUBRICS .== 1),
+      cosmo   = findall(0.8 .<= df.Redshift .<= 1.9),
       hostgal = findall(df.Galaxy_norm .>=0)) #Sources where the host galaxy template was fit (regardless of reliability)
 
 qc = (good = findall((df.good .== 1)  .&&  (df.QSOcont_reliable .== 1)),      # sources passing the quality cut
@@ -23,10 +24,12 @@ qc = (good = findall((df.good .== 1)  .&&  (df.QSOcont_reliable .== 1)),      # 
       HeI  = findall((df.good .== 1)  .&&  (df.HeI_10832_br_reliable .== 1))) # quality cut for HeI-based BH masses
 
 # General plot settings
-GEN_OPTS = (fontfamily="Computer Modern", framestyle=:box, grid=false, background_color_legend=nothing, foreground_color_legend=nothing, thickness_scaling=1.2)
+GEN_OPTS = (fontfamily="Computer Modern", framestyle=:box, grid=false,
+            background_color_legend=nothing, foreground_color_legend=nothing, # , legend_column=-1
+            palette=:darkrainbow, # :seaborn_dark6, :rainbow 
+            thickness_scaling=1.2)
 # , titlefontsize=8, guidefontsize=8, tickfontsize=8, legendfontsize=7
-# , background_color_legend=nothing, foreground_color_legend=nothing, legend_column=-1
-palette = [:darkred, :darkgreen, :darkblue, :gray, :purple]
+# palette = [:darkred, :darkgreen, :darkblue, :gray, :purple]
 
 HISTO_OPTS = (alpha=1, fillalpha=0.6, fill=true)
  
@@ -39,17 +42,17 @@ yfraction(f) = ylims()[1] + (ylims()[2] - ylims()[1]) * f
 let
     SERIES_OPTS = (bins=0:0.25:maximum(df.Redshift), HISTO_OPTS...)
     plot(; GEN_OPTS..., title=L"$\mathrm{\textbf{Full\ sample}}$", xlabel=L"$z$", ylabel=L"$\mathrm{Counts}$")
-    stephist!(df[:         , :Redshift], label=L"$\mathrm{Merged\ sample}$"          , color=palette[1]; SERIES_OPTS...)
-    stephist!(df[ii.FU     , :Redshift], label=L"$\mathrm{Fu\ et\ al.\ (in\ prep.)}$", color=palette[2]; SERIES_OPTS...)
-    stephist!(df[ii.DESI   , :Redshift], label=L"$\mathrm{DESI}$"                    , color=palette[3]; SERIES_OPTS...)
-    stephist!(df[ii.QUBRICS, :Redshift], label=L"$\mathrm{QUBRICS}$"                 , color=palette[4]; SERIES_OPTS...)
+    stephist!(df[:         , :Redshift], label=L"$\mathrm{Merged\ sample}$"          ; SERIES_OPTS...)
+    stephist!(df[ii.FU     , :Redshift], label=L"$\mathrm{Fu\ et\ al.\ (in\ prep.)}$"; SERIES_OPTS...)
+    stephist!(df[ii.DESI   , :Redshift], label=L"$\mathrm{DESI}$"                    ; SERIES_OPTS...)
+    stephist!(df[ii.QUBRICS, :Redshift], label=L"$\mathrm{QUBRICS}$"                 ; SERIES_OPTS...)
     savefig("Figures/Redshift_Hist_Figure.pdf")
 
     plot(; GEN_OPTS..., title=L"$\mathrm{\textbf{Good\ quality\ sample}}$", xlabel=L"$z$", ylabel=L"$\mathrm{Counts}$")
-    stephist!(df[                      qc.good , :Redshift], label=L"$\mathrm{Merged\ sample}$"          , color=palette[1]; SERIES_OPTS...)
-    stephist!(df[intersect(ii.FU     , qc.good), :Redshift], label=L"$\mathrm{Fu\ et\ al.\ (in\ prep.)}$", color=palette[2]; SERIES_OPTS...)
-    stephist!(df[intersect(ii.DESI   , qc.good), :Redshift], label=L"$\mathrm{DESI}$"                    , color=palette[3]; SERIES_OPTS...)
-    stephist!(df[intersect(ii.QUBRICS, qc.good), :Redshift], label=L"$\mathrm{QUBRICS}$"                 , color=palette[4]; SERIES_OPTS...)
+    stephist!(df[                      qc.good , :Redshift], label=L"$\mathrm{Merged\ sample}$"          ; SERIES_OPTS...)
+    stephist!(df[intersect(ii.FU     , qc.good), :Redshift], label=L"$\mathrm{Fu\ et\ al.\ (in\ prep.)}$"; SERIES_OPTS...)
+    stephist!(df[intersect(ii.DESI   , qc.good), :Redshift], label=L"$\mathrm{DESI}$"                    ; SERIES_OPTS...)
+    stephist!(df[intersect(ii.QUBRICS, qc.good), :Redshift], label=L"$\mathrm{QUBRICS}$"                 ; SERIES_OPTS...)
     savefig("Figures/Redshift_Hist_Quality_Figure.pdf")
 end
 
@@ -71,11 +74,11 @@ let
     SERIES_OPTS = (bins=6.:0.5:10.5, HISTO_OPTS...,
                    bottom_margin=(-3.5, :mm), top_margin=(-1.5, :mm)) # <-- these are necessary to reduce space between the subplots
     accum = Vector{Any}()
-    vv = filter(!isnan, df[qc.MgII, :MBH_MgII_WuShen2022]); push!(accum, stephist(vv, label=L"$\mathrm{MgII}$"   , color=palette[1]; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
-    vv = filter(!isnan, df[qc.Hb  , :MBH_Hb_WuShen2022])  ; push!(accum, stephist(vv, label=L"$\mathrm{H}\beta$" , color=palette[2]; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
-    vv = filter(!isnan, df[qc.Ha  , :MBH_Ha_ShenLiu2012]) ; push!(accum, stephist(vv, label=L"$\mathrm{H}\alpha$", color=palette[3]; SERIES_OPTS..., xformatter=_->"", ylabel=L"$\mathrm{Counts}$")); add_details!(vv)
-    vv = filter(!isnan, df[qc.HeI , :MBH_HeI_Ricci])      ; push!(accum, stephist(vv, label=L"$\mathrm{He\,I}$"  , color=palette[4]; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
-    vv = filter(!isnan, df[qc.Pab , :MBH_Pab_Ricci])      ; push!(accum, stephist(vv, label=L"$\mathrm{Pa}\beta$", color=palette[5]; SERIES_OPTS..., xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", bottom_margin=(-1., :mm))); add_details!(vv)
+    vv = filter(!isnan, df[qc.MgII, :MBH_MgII_WuShen2022]); push!(accum, stephist(vv, label=L"$\mathrm{MgII}$"   ; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
+    vv = filter(!isnan, df[qc.Hb  , :MBH_Hb_WuShen2022])  ; push!(accum, stephist(vv, label=L"$\mathrm{H}\beta$" ; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
+    vv = filter(!isnan, df[qc.Ha  , :MBH_Ha_ShenLiu2012]) ; push!(accum, stephist(vv, label=L"$\mathrm{H}\alpha$"; SERIES_OPTS..., xformatter=_->"", ylabel=L"$\mathrm{Counts}$")); add_details!(vv)
+    vv = filter(!isnan, df[qc.HeI , :MBH_HeI_Ricci])      ; push!(accum, stephist(vv, label=L"$\mathrm{He\,I}$"  ; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
+    vv = filter(!isnan, df[qc.Pab , :MBH_Pab_Ricci])      ; push!(accum, stephist(vv, label=L"$\mathrm{Pa}\beta$"; SERIES_OPTS..., xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", bottom_margin=(-1., :mm))); add_details!(vv)
     plot(accum..., layout=grid(length(accum), 1); GEN_OPTS..., legend=:topright)
     savefig("Figures/BH_mass.pdf")
 
@@ -83,36 +86,40 @@ let
     plot(; GEN_OPTS..., xlabel=L"$\log_{10}(M_{\mathrm{H}\alpha}/M_{\mathrm{H}\beta})$", ylabel=L"$\mathrm{Counts}$")
     i = intersect(qc.Ha, qc.Hb)
     vv = filter(!isnan, df[i, :MBH_Ha_ShenLiu2012] .- df[i, :MBH_Hb_WuShen2022])
-    stephist!(vv, label=L"$\mathrm{H}\alpha\ vs\ \mathrm{H}\beta$", bins=minimum(vv):0.25:maximum(vv); color=:royalblue4, HISTO_OPTS...)
+    stephist!(vv, label=L"$\mathrm{H}\alpha\ vs\ \mathrm{H}\beta$", bins=minimum(vv):0.25:maximum(vv); HISTO_OPTS...)
     add_details!(vv, y1=0.8, y2=0.7)
     savefig("Figures/BH_mass_Ha_vs_Hb.pdf")
 end
+
 
 ######################################################################
 # QSO Continuum alpha index histogram
 let
     # Redshift bins
     i0 = intersect(qc.good)
-    i1 = intersect(qc.good, findall(      df.Redshift .< 1))
-    i2 = intersect(qc.good, findall(1 .<= df.Redshift .< 2))
-    i3 = intersect(qc.good, findall(2 .<= df.Redshift     ))
+    i1 = intersect(qc.good, findall(        df.Redshift .< 0.8))
+    i2 = intersect(qc.good, findall(0.8 .<= df.Redshift .< 1.9))
+    i3 = intersect(qc.good, findall(1.9 .<= df.Redshift       ))
 
-    function add_details!(vv, label, color, SERIES_OPTS; kws...)
+    function add_details!(vv, label, color, SERIES_OPTS; showmean=true, kws...)
         μ = median(vv)
         σ = mad(vv, normalize=true)
         sμ = @sprintf("%.2f", μ)
         sσ = @sprintf("%.2f", σ)
-        stephist!(vv, label=label * L"\ (\tilde{\mu}=%$sμ)", color=color; SERIES_OPTS..., kws...)
-        vline!([median(vv)], label="", color=color, linewidth=2, linestyle=:dash)
+        if showmean
+            stephist!(vv, label=label * L"\ (\tilde{\mu}=%$sμ)", color=color; SERIES_OPTS..., kws...)
+            vline!([median(vv)], label="", color=color, linewidth=2, linestyle=:dash)
+        else
+            stephist!(vv, label=label, color=color; SERIES_OPTS..., kws...)
+        end
     end
-
-    #Plot histograms
+    
     SERIES_OPTS = (bins=minimum(df.QSOcont_alpha):0.25:maximum(df.QSOcont_alpha), HISTO_OPTS...)
     plot(; GEN_OPTS..., legend=:topright, xlabel=L"$\alpha_{\lambda}$", ylabel=L"$\mathrm{Counts}$")
-    add_details!(df[i0, :QSOcont_alpha], L"$\mathrm{Merged\ sample}$", palette[4], SERIES_OPTS)
-    add_details!(df[i1, :QSOcont_alpha], L"$z < 1$"                  , palette[1], SERIES_OPTS)
-    add_details!(df[i2, :QSOcont_alpha], L"$1 < z < 2$"              , palette[2], SERIES_OPTS; z_order=2)
-    add_details!(df[i3, :QSOcont_alpha], L"$z > 2$"                  , palette[3], SERIES_OPTS)
+    add_details!(df[i0, :QSOcont_alpha], L"$\mathrm{Merged\ sample}$", :black, SERIES_OPTS, showmean=false, fill=false, linewidth=4)
+    add_details!(df[i1, :QSOcont_alpha], L"$z < 0.8$"                , 1, SERIES_OPTS)
+    add_details!(df[i2, :QSOcont_alpha], L"$0.8 < z < 1.9$"          , 2, SERIES_OPTS)
+    add_details!(df[i3, :QSOcont_alpha], L"$z > 1.9$"                , 3, SERIES_OPTS)
     savefig("Figures/QSOcont_alpha_Hist_Redshift_2.pdf")
 end
 
@@ -133,10 +140,10 @@ end
 let
     SERIES_OPTS = (bins=minimum(df.Hmag):0.25:maximum(df.Hmag), HISTO_OPTS...)
     plot(; GEN_OPTS..., xlabel=L"$H_E\ \mathrm{magnitude}$", ylabel=L"$\mathrm{Counts}$", title=L"$\mathrm{\textbf{Good sample}}$", legend=:topleft)
-    stephist!(df[                      qc.good , :Hmag], label=L"$\mathrm{Merged\ sample}$"          , color=palette[1]; SERIES_OPTS...)
-    stephist!(df[intersect(ii.FU     , qc.good), :Hmag], label=L"$\mathrm{Fu\ et\ al.\ (in\ prep.)}$", color=palette[2]; SERIES_OPTS...)
-    stephist!(df[intersect(ii.DESI   , qc.good), :Hmag], label=L"$\mathrm{DESI}$"                    , color=palette[3]; SERIES_OPTS...)
-    stephist!(df[intersect(ii.QUBRICS, qc.good), :Hmag], label=L"$\mathrm{QUBRICS}$"                 , color=palette[4]; SERIES_OPTS...)
+    stephist!(df[                      qc.good , :Hmag], label=L"$\mathrm{Merged\ sample}$"          , ; SERIES_OPTS...)
+    stephist!(df[intersect(ii.FU     , qc.good), :Hmag], label=L"$\mathrm{Fu\ et\ al.\ (in\ prep.)}$", ; SERIES_OPTS...)
+    stephist!(df[intersect(ii.DESI   , qc.good), :Hmag], label=L"$\mathrm{DESI}$"                    , ; SERIES_OPTS...)
+    stephist!(df[intersect(ii.QUBRICS, qc.good), :Hmag], label=L"$\mathrm{QUBRICS}$"                 , ; SERIES_OPTS...)
     savefig("Figures/Hmag_Hist_source_Fig.pdf")
 end
 
@@ -149,9 +156,9 @@ let
     i = intersect(ii.FU, qc.good)
     scatter!(df[i, :Redshift], df[i, :Hmag], label=L"$\mathrm{Fu\ et\ al.}$", mc=palette[1], markershape=:rect; SERIES_OPTS...)
     i = intersect(ii.DESI, qc.good)
-    scatter!(df[i, :Redshift], df[i, :Hmag], label=L"$\mathrm{DESI}$"                 , mc=palette[2], markershape=:pentagon; SERIES_OPTS...)
+    scatter!(df[i, :Redshift], df[i, :Hmag], label=L"$\mathrm{DESI}$"       , mc=palette[2], markershape=:pentagon; SERIES_OPTS...)
     i = intersect(ii.QUBRICS, qc.good)
-    scatter!(df[i, :Redshift], df[i, :Hmag], label=L"$\mathrm{QUBRICS}$"              , mc=palette[3], markershape=:utriangle; SERIES_OPTS...)
+    scatter!(df[i, :Redshift], df[i, :Hmag], label=L"$\mathrm{QUBRICS}$"    , mc=palette[3], markershape=:utriangle; SERIES_OPTS...)
     savefig("Figures/Hmag_vs_z_cut_Fig.pdf")
 end
 
@@ -162,11 +169,11 @@ let
     SERIES_OPTS = (bins=40.5:0.25:45, HISTO_OPTS...,
                    bottom_margin=(-3.5, :mm), top_margin=(-1.5, :mm)) # <-- these are necessary to reduce space between the subplots
     accum = Vector{Any}()
-    push!(accum, stephist(log10.(df[qc.MgII, :MgII_2798_br_norm]) .+ 42, label=L"$\mathrm{Mg\,II}$";  color=palette[1], SERIES_OPTS..., xformatter=_->""))
-    push!(accum, stephist(log10.(df[qc.Hb  , :Hb_br_norm])        .+ 42, label=L"$\mathrm{H\beta}$";  color=palette[2], SERIES_OPTS..., xformatter=_->""))
-    push!(accum, stephist(log10.(df[qc.Ha  , :Ha_br_norm])        .+ 42, label=L"$\mathrm{H\alpha}$"; color=palette[3], SERIES_OPTS..., xformatter=_->"", ylabel=L"$\mathrm{Counts}$"))
-    push!(accum, stephist(log10.(df[qc.HeI , :HeI_10832_br_norm]) .+ 42, label=L"$\mathrm{He\,I}$";   color=palette[4], SERIES_OPTS..., xformatter=_->""))
-    push!(accum, stephist(log10.(df[qc.Pab , :Pab_br_norm])       .+ 42, label=L"$\mathrm{Pa}\beta$"; color=palette[5], SERIES_OPTS..., xlabel=L"$\log_{10}(L_{\mathrm{line}}/\mathrm{erg\ s^{-1}})$", bottom_margin=(-1., :mm)))
+    push!(accum, stephist(log10.(df[qc.MgII, :MgII_2798_br_norm]) .+ 42, label=L"$\mathrm{Mg\,II}$";  SERIES_OPTS..., xformatter=_->""))
+    push!(accum, stephist(log10.(df[qc.Hb  , :Hb_br_norm])        .+ 42, label=L"$\mathrm{H\beta}$";  SERIES_OPTS..., xformatter=_->""))
+    push!(accum, stephist(log10.(df[qc.Ha  , :Ha_br_norm])        .+ 42, label=L"$\mathrm{H\alpha}$"; SERIES_OPTS..., xformatter=_->"", ylabel=L"$\mathrm{Counts}$"))
+    push!(accum, stephist(log10.(df[qc.HeI , :HeI_10832_br_norm]) .+ 42, label=L"$\mathrm{He\,I}$";   SERIES_OPTS..., xformatter=_->""))
+    push!(accum, stephist(log10.(df[qc.Pab , :Pab_br_norm])       .+ 42, label=L"$\mathrm{Pa}\beta$"; SERIES_OPTS..., xlabel=L"$\log_{10}(L_{\mathrm{line}}/\mathrm{erg\ s^{-1}})$", bottom_margin=(-1., :mm)))
     plot(accum..., layout=grid(length(accum), 1); GEN_OPTS...)
     savefig("Figures/Lines_lum.pdf")
 end
@@ -175,18 +182,18 @@ let
     SERIES_OPTS = (bins=2.5:0.2:5, HISTO_OPTS...,
                    bottom_margin=(-3.5, :mm), top_margin=(-1.5, :mm)) # <-- these are necessary to reduce space between the subplots
     accum = Vector{Any}()
-    push!(accum, stephist(log10.(df[qc.MgII, :MgII_2798_br_fwhm]), label=L"$\mathrm{Mg\,II}$";  color=palette[1], SERIES_OPTS..., xformatter=_->""))
-    push!(accum, stephist(log10.(df[qc.Hb  , :Hb_br_fwhm])       , label=L"$\mathrm{H\beta}$";  color=palette[2], SERIES_OPTS..., xformatter=_->""))
-    push!(accum, stephist(log10.(df[qc.Ha  , :Ha_br_fwhm])       , label=L"$\mathrm{H\alpha}$"; color=palette[3], SERIES_OPTS..., xformatter=_->"", ylabel=L"$\mathrm{Counts}$"))
-    push!(accum, stephist(log10.(df[qc.HeI , :HeI_10832_br_fwhm]), label=L"$\mathrm{He\,I}$";   color=palette[4], SERIES_OPTS..., xformatter=_->""))
-    push!(accum, stephist(log10.(df[qc.Pab , :Pab_br_fwhm])      , label=L"$\mathrm{Pa}\beta$"; color=palette[5], SERIES_OPTS..., xlabel=L"$\log_{10}(\mathrm{FWHM/km\ s^{-1}})$", bottom_margin=(-1., :mm)))
+    push!(accum, stephist(log10.(df[qc.MgII, :MgII_2798_br_fwhm]), label=L"$\mathrm{Mg\,II}$";  SERIES_OPTS..., xformatter=_->""))
+    push!(accum, stephist(log10.(df[qc.Hb  , :Hb_br_fwhm])       , label=L"$\mathrm{H\beta}$";  SERIES_OPTS..., xformatter=_->""))
+    push!(accum, stephist(log10.(df[qc.Ha  , :Ha_br_fwhm])       , label=L"$\mathrm{H\alpha}$"; SERIES_OPTS..., xformatter=_->"", ylabel=L"$\mathrm{Counts}$"))
+    push!(accum, stephist(log10.(df[qc.HeI , :HeI_10832_br_fwhm]), label=L"$\mathrm{He\,I}$";   SERIES_OPTS..., xformatter=_->""))
+    push!(accum, stephist(log10.(df[qc.Pab , :Pab_br_fwhm])      , label=L"$\mathrm{Pa}\beta$"; SERIES_OPTS..., xlabel=L"$\log_{10}(\mathrm{FWHM/km\ s^{-1}})$", bottom_margin=(-1., :mm)))
 
     SERIES_OPTS = (SERIES_OPTS..., bins=-500:200.:500)
-    push!(accum, stephist(       df[qc.MgII, :MgII_2798_br_voff] , label=L"$\mathrm{Mg\,II}$";  color=palette[1], SERIES_OPTS..., xformatter=_->""))
-    push!(accum, stephist(       df[qc.Hb  , :Hb_br_voff]        , label=L"$\mathrm{H\beta}$";  color=palette[2], SERIES_OPTS..., xformatter=_->""))
-    push!(accum, stephist(       df[qc.Ha  , :Ha_br_voff]        , label=L"$\mathrm{H\alpha}$"; color=palette[3], SERIES_OPTS..., xformatter=_->""))
-    push!(accum, stephist(       df[qc.HeI , :HeI_10832_br_voff] , label=L"$\mathrm{He\,I}$";   color=palette[4], SERIES_OPTS..., xformatter=_->""))
-    push!(accum, stephist(       df[qc.Pab , :Pab_br_voff]       , label=L"$\mathrm{Pa}\beta$"; color=palette[5], SERIES_OPTS..., xlabel=L"$\mathrm{V_{off}/km\ s^{-1}}$", bottom_margin=(-1., :mm)))
+    push!(accum, stephist(       df[qc.MgII, :MgII_2798_br_voff] , label=L"$\mathrm{Mg\,II}$";  SERIES_OPTS..., xformatter=_->""))
+    push!(accum, stephist(       df[qc.Hb  , :Hb_br_voff]        , label=L"$\mathrm{H\beta}$";  SERIES_OPTS..., xformatter=_->""))
+    push!(accum, stephist(       df[qc.Ha  , :Ha_br_voff]        , label=L"$\mathrm{H\alpha}$"; SERIES_OPTS..., xformatter=_->""))
+    push!(accum, stephist(       df[qc.HeI , :HeI_10832_br_voff] , label=L"$\mathrm{He\,I}$";   SERIES_OPTS..., xformatter=_->""))
+    push!(accum, stephist(       df[qc.Pab , :Pab_br_voff]       , label=L"$\mathrm{Pa}\beta$"; SERIES_OPTS..., xlabel=L"$\mathrm{V_{off}/km\ s^{-1}}$", bottom_margin=(-1., :mm)))
 
     accum = permutedims(reshape(accum,     div(length(accum), 2), 2)) # reorder subplots so that they appear in the correct order
     plot(reshape(accum, :)..., layout=grid(div(length(accum), 2), 2); GEN_OPTS...)
@@ -196,40 +203,24 @@ end
 
 #############################################################################
 # Bol Lum Mean Histogram
-#Defining bins
-cosmorange= df[df.Redshift .> 0.9 .&& df.Redshift .< 1.8, :]
-cosmorangequal = qualcut[qualcut.Redshift .> 0.9 .&& qualcut.Redshift .< 1.8, :]
-qualcut = df[(df.good .== 1), :]
 
-#Quality cut
-#masses histogram
-massescutMean = @df qualcut stephist(:MBH_mean, label=L"$\mathrm{Good\ sample}$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=30, fill=true, color=:royalblue3, grid=false, framestyle=:box, xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$")
+let
+    plot(; GEN_OPTS..., legend=:topleft, xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$")
+    vv = filter(!isnan, df[qc.good, :MBH_mean]);
+    stephist!(vv, label=L"$\mathrm{Good\ sample}$"; HISTO_OPTS...)
+    vv = filter(!isnan, df[intersect(ii.cosmo, qc.good), :MBH_mean]);
+    stephist!(vv, label=L"$0.8 < z < 1.9$"; HISTO_OPTS...)
+    savefig("Figures/Mean_BH_Mass.pdf")
+end
 
-Cosmomean = @df cosmorangequal stephist!(:MBH_mean, label=L"$0.8<z<1.9$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=30, fill=true, color=:lightblue2, fillcolor=:lightblue2, grid=false, framestyle=:box, legend=:topleft)
-
-#statistics
-MEANFull = mean(filter(!isnan, skipmissing(qualcut.MBH_mean)))
-Meanline = vline!([MEANFull], label=L"$\mathrm{Geom.\ mean}$", color="red", linewidth = 3.5, thickness_scalling =1, linestyle=:dash)
-
-
-#Luminosities histogram
-bolcutMean = @df qualcut stephist(log10.(:Lbol_mean), label=L"$\mathrm{Good\ sample}$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=30, fill=true, color=:royalblue3, grid=false, framestyle=:box, xlabel=L"$\log_{10}(L_{bol}/\mathrm{erg\ s^{-1}})$", ylabel=L"$\mathrm{Counts}$")
-
-Cosmomeanlum = @df cosmorangequal stephist!(log10.(:Lbol_mean), label=L"$0.8<z<1.9$", guidefontsize=14, tickfontsize=14, legendfontsize=14, bins=10, fill=true, color=:lightblue2, fillcolor=:lightblue2, grid=false, framestyle=:box)
-
-		#statistics
-MEANFull = mean(filter(!isnan, skipmissing(log10.(qualcut.Lbol_mean))))
-Meanline = vline!([MEANFull], label=L"$\mathrm{Geom.\ mean}$", color="red", linewidth = 3.5, thickness_scalling =1, linestyle=:dash)
-MEDIANFull = median(filter(!isnan, skipmissing(qualcut.MBH_mean)))
-MADFull = mad(filter(!isnan, skipmissing(qualcut.MBH_mean)), normalize=true)
-
-plot!(formatter=:latex)
-
-
-
-Lummasspanel = plot(bolcutMean, massescutMean, layout=grid(1, 2, widths=(4/8, 4/8)), size=(1600,600), margin=5*Plots.mm, left_margin=10*Plots.mm, bottom_margin=12*Plots.mm , guidefontsize=22, tickfontsize=22, legendfontsize=20, titlefontsize=22)
-
-savefig(Lummasspanel, "Figures/Mean_Bol_Mass_fig.pdf")
+let
+    plot(; GEN_OPTS..., legend=:topleft, xlabel=L"$\log_{10}(L_{bol}/\mathrm{erg\ s^{-1}})$", ylabel=L"$\mathrm{Counts}$")
+    vv = filter(!isnan, df[qc.good, :Lbol_mean]);
+    stephist!(log10.(vv), label=L"$\mathrm{Good\ sample}$"; HISTO_OPTS...)
+    vv = filter(!isnan, df[intersect(ii.cosmo, qc.good), :Lbol_mean]);
+    stephist!(log10.(vv), label=L"$0.8 < z < 1.9$"; HISTO_OPTS...)
+    savefig("Figures/Mean_Lbol.pdf")
+end
 
 
 
@@ -278,7 +269,7 @@ minusHaFWHM = qualcut.MBH_Ha_ShenLiu2012 .-qualcutDESI.MBH_MgII_WuShen2022
 
 
 
-MBHDESIHaEuclidcut = @df HaFWHM_cut stephist(minusHaFWHM, xlabel=L"$\log_{10}(M_{\mathrm{BH},\ Euclid}/\mathrm{M_{\odot}})-\log_{10}(M_{\mathrm{BH},\ \mathrm{DESI}}/\mathrm{M_{\odot}})$", label=L"$\mathrm{H}\alpha - \mathrm{MgII}$", guidefontsize=12, tickfontsize=12, legendfontsize=12, bins=10, fill=true, color=:royalblue3, grid=false, legend=:topleft, framestyle=:box)
+MBHDESIHaEuclidcut = @df HaFWHM_cut stephist(minusHaFWHM, xlabel=L"$\log_{10}(M_{\mathrm{BH},\ Euclid}/\mathrm{M_{\odot}})-\log_{10}(M_{\mathrm{BH},\ \mathrm{DESI}}/\mathrm{M_{\odot}})$", label=L"$\mathrm{H}\alpha - \mathrm{MgII}$", guidefontsize=12, tickfontsize=12, legendfontsize=12, bins=10, color=:royalblue3, grid=false, legend=:topleft, framestyle=:box)
 
 madnorm = mad(filter(!isnan, skipmissing(minusHaFWHM)), normalize=true)
 MEDIAN = median(filter(!isnan, skipmissing(minusHaFWHM)))
@@ -302,7 +293,7 @@ betterqualcutDESI = dfDESImatched[coalesce.(dfmatched.good .== 1, false) .&& coa
 
 MgIIoverHb = betterqualcutDESI.MgII_2798_br_norm ./ betterqualcut.Hb_br_norm
 
-MgIIHbhist = stephist(MgIIoverHb, xlabel=L"$\mathrm{L}_{\mathrm{Mg\,II},\  \mathrm{DESI}}(\mathrm{erg\ s^{-1}})/\mathrm{L}_{\mathrm{H\beta},\ EUCLID} (\mathrm{erg\ s^{-1}})$", label=L"$\mathrm{H}\beta / \mathrm{MgII}$", guidefontsize=12, tickfontsize=12, legendfontsize=12, bins=20, fill=true, color=:white, fillcolor=:royalblue1, grid=false, legend=:topright, framestyle=:box)
+MgIIHbhist = stephist(MgIIoverHb, xlabel=L"$\mathrm{L}_{\mathrm{Mg\,II},\  \mathrm{DESI}}(\mathrm{erg\ s^{-1}})/\mathrm{L}_{\mathrm{H\beta},\ EUCLID} (\mathrm{erg\ s^{-1}})$", label=L"$\mathrm{H}\beta / \mathrm{MgII}$", guidefontsize=12, tickfontsize=12, legendfontsize=12, bins=20, color=:white, fillcolor=:royalblue1, grid=false, legend=:topright, framestyle=:box)
 
 madnorm = mad(filter(!isnan, skipmissing(MgIIoverHb)), normalize=true)
 MEDIAN = median(filter(!isnan, skipmissing(MgIIoverHb)))
@@ -354,8 +345,8 @@ qualcut_DESI = dfDESI[(dfDESI.good .== 1) .&& (dfDESI.redchisq .<6), :]
 
 #With Quality cut
 chicut_log = log10.(qualcut_DESI.redchisq)
-Kamehameha = @df dfDESI scatter(:redchisq, :DER_SNR, label=L"$\mathrm{Full\ sample}$", mc=:salmon, ms=2, markerstrokewidth=0, ma=1, dpi=300, guidefontsize=14, tickfontsize=14, legendfontsize=14, grid=false, framestyle=:box)
-Kamecut = @df qualcut_DESI scatter!(:redchisq, :DER_SNR, label=L"$\mathrm{Good\ sample}$", mc=:royalblue3, markershape=:rect, ms=4, ma=1, dpi=300, guidefontsize=14, tickfontsize=14, legendfontsize=14, grid=false, framestyle=:box, legend=:bottomright)
+Kamehameha = @df dfDESI scatter(:redchisq, :DER_SNR, label=L"$\mathrm{Full\ sample}$", mc=:salmon, ms=2, markerstrokewidth=0, ma=1, dpi=300)
+Kamecut = @df qualcut_DESI scatter!(:redchisq, :DER_SNR, label=L"$\mathrm{Good\ sample}$", mc=:royalblue3, markershape=:rect, ms=4, ma=1, dpi=300, legend=:bottomright)
 
 title!(L"$\mathrm{\textbf{DESI\ spectra}}$")
 plot!(formatter=:latex, xaxis=:log10, yaxis=:log10)
@@ -377,9 +368,9 @@ Dalpha_qual = DESI_qualcut.QSOcont_alpha
 qualcut = df[(df.good .== 1),:] #quality cut for the Euclid data
 
 
-Dalphacut = @df DESI_qualcut stephist(:QSOcont_alpha, label=L"$\mathrm{DESI\ sample}$", bins=20, guidefontsize=16, tickfontsize=16, legendfontsize=14, fill=true, color=:royalblue3, legend=:topright, grid=false, framestyle=:box, z_order=1, normalize=:probability)
+Dalphacut = @df DESI_qualcut stephist(:QSOcont_alpha, label=L"$\mathrm{DESI\ sample}$", bins=20, guidefontsize=16, tickfontsize=16, legendfontsize=14, color=:royalblue3, legend=:topright, z_order=1, normalize=:probability)
 
-alphacut = @df qualcut stephist!(:QSOcont_alpha, label=L"$Euclid\ \mathrm{sample}$", bins=80, guidefontsize=16, tickfontsize=16, legendfontsize=14, fill=false, color=:black, fillcolor=:black, legend=:topright, grid=false, framestyle=:box,z_order=2, normalize=:probability)
+alphacut = @df qualcut stephist!(:QSOcont_alpha, label=L"$Euclid\ \mathrm{sample}$", bins=80, guidefontsize=16, tickfontsize=16, legendfontsize=14, fill=false, color=:black, fillcolor=:black, legend=:topright,z_order=2, normalize=:probability)
 
 #Estimating the median for the DESI slope
 medianDESI  = @sprintf("%.2f",median(filter(!isnan, skipmissing(Dalpha_qual))))
