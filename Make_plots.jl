@@ -142,6 +142,7 @@ let
     add_series!(euclid[qc.good .&  sub.lowz , :QSOcont_alpha], L"$z < 0.8$"                , 1     , SERIES_OPTS)
     add_series!(euclid[qc.good .&  sub.cosmo, :QSOcont_alpha], L"$0.8 < z < 1.9$"          , 2     , SERIES_OPTS)
     add_series!(euclid[qc.good .&  sub.highz, :QSOcont_alpha], L"$z > 1.9$"                , 3     , SERIES_OPTS)
+    add_series!(desi[qc_desi.good           , :QSOcont_alpha], L"DESI"                     , 4     , SERIES_OPTS, z_order=2)
     savefig("Figures/QSOcont_alpha_Hist_Redshift_2.pdf")
 end
 
@@ -150,7 +151,7 @@ end
 # Chi2 vs SNR plots
 let
     plot(; GEN_OPTS..., xlabel=L"$\mathrm{Reduced}\ \chi^2$", ylabel=L"$\mathrm{Spectrum\ S/N}$")
-    scatter!(euclid[:,       :redchisq], euclid[:      , :DER_SNR], label=L"$\mathrm{Full\ sample}$", ms=2, markerstrokewidth=0)
+    scatter!(euclid[:      , :redchisq], euclid[:      , :DER_SNR], label=L"$\mathrm{Full\ sample}$", ms=2, markerstrokewidth=0)
     scatter!(euclid[qc.good, :redchisq], euclid[qc.good, :DER_SNR], label=L"$\mathrm{Good\ sample}$", ms=4, ma=0.6, markershape=:circ)
     plot!(xaxis=:log10, yaxis=:log10)
     savefig("Figures/Chi2vsSNR_cut_Fig.pdf")
@@ -220,7 +221,7 @@ let
 end
 
 
-#############################################################################
+######################################################################
 # Bol Lum Mean Histogram
 let
     plot(; GEN_OPTS..., legend=:topleft, xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$")
@@ -238,18 +239,24 @@ end
 
 
 ######################################################################
-## DESI BH Mass - Euclid Ha BH mass
+# DESI BH Mass - Euclid Ha BH mass
 let
-    plot(; GEN_OPTS..., legend=:topleft, xlabel=L"$\log_{10}(M_{\mathrm{BH,\ Euclid,\ H\alpha}} / M_{\mathrm{BH,\ DESI,\ MgII}})$", ylabel=L"$\mathrm{Counts}$")
+    plot(; GEN_OPTS..., xlabel=L"$\log_{10}(M_{\mathrm{BH,\ Euclid,\ H\alpha}} / M_{\mathrm{BH,\ DESI,\ MgII}})$", ylabel=L"$\mathrm{Counts}$")
     ii = qc_match.Ha .& qc_desi.MgII
     vv = filter(!isnan, euclid_match[ii, :MBH_Ha_ShenLiu2012] .- desi[ii, :MBH_MgII_WuShen2022])
     stephist!(vv, label=""; HISTO_OPTS...)
     add_μσ!(vv, y1=0.9, y2=0.8)
-    savefig("Figures/BH_mass_cmpDESI.pdf")
+    savefig("Figures/BH_mass_cmpDESI_histo.pdf")
+
+    plot(; GEN_OPTS..., xlabel=L"$\log_{10}(M_{\mathrm{BH,\ Euclid,\ H\alpha}}$", ylabel=L"M_{\mathrm{BH,\ DESI,\ MgII}})", xlims=(7.5, 10), ylims=(7.5,10))
+    ii = qc_match.Ha .& qc_desi.MgII
+    scatter!(euclid_match[ii, :MBH_Ha_ShenLiu2012], desi[ii, :MBH_MgII_WuShen2022], label="")
+    plot!([xlims()...], [ylims()...], label = L"$1:1$", linecolor=:black, ls=:dash, lw=2)
+    savefig("Figures/BH_mass_cmpDESI_scatter.pdf")
 end
 
 let
-    plot(; GEN_OPTS..., legend=:topleft, xlabel=L"$\log_{10}(\mathrm{L}_{\mathrm{Euclid,\ H\alpha}}\ /\ \mathrm{L}_{\mathrm{DESI,\ MgII}})$", ylabel=L"$\mathrm{Counts}$")
+    plot(; GEN_OPTS..., xlabel=L"$\log_{10}(\mathrm{L}_{\mathrm{Euclid,\ H\alpha}}\ /\ \mathrm{L}_{\mathrm{DESI,\ MgII}})$", ylabel=L"$\mathrm{Counts}$")
     ii = qc_match.Ha .& qc_desi.MgII
     vv = log10.(filter(!isnan, euclid_match[ii, :Ha_br_norm] ./ desi[ii, :MgII_2798_br_norm]))
     stephist!(vv, label=""; HISTO_OPTS...)
@@ -258,89 +265,19 @@ let
 end
 
 
-#################################################################
-# BHM scatter
-jj = sortmerge(qualcut.ID, qualcutDESI.ID_EUCLID)
-BHEumatch = qualcut[jj[1],:]
-BHDESmatch = qualcutDESI[jj[2],:]
+######################################################################
+# Chi2 vs SNR plots
+let
+    plot(; GEN_OPTS..., xlabel=L"$\mathrm{Reduced}\ \chi^2$", ylabel=L"$\mathrm{Spectrum\ S/N}$")
+    scatter!(desi[:           , :redchisq], desi[:           , :DER_SNR], label=L"$\mathrm{Full\ sample}$", ms=2, markerstrokewidth=0)
+    scatter!(desi[qc_desi.good, :redchisq], desi[qc_desi.good, :DER_SNR], label=L"$\mathrm{Good\ sample}$", ms=4, ma=0.6, markershape=:circ)
+    plot!(xaxis=:log10, yaxis=:log10)
+    savefig("Figures/Chi2vsSNR_cut_Fig_DESI.pdf")
+end
 
-#Quality cut
-BHM_cutMg = scatter(BHDESmatch.MBH_MgII_WuShen2022, BHEumatch.MBH_Ha_ShenLiu2012, label="", guidefontsize=14, tickfontsize=14, markershape=:square, legendfontsize=14, bins=50, color=:royalblue3, grid=false,framestyle=:box, legend=:topleft)
-
-identity2 = @df df plot!(:MBH_Ha_ShenLiu2012, :MBH_Ha_ShenLiu2012, label = L"$1:1$", linecolor=:black, ls=:dash, lw=2, z_order=1)
-
-qualcut.MBH_Ha_ShenLiu2012 = replace(qualcut.MBH_Ha_ShenLiu2012, NaN=>missing)
-qualcutDESI.MBH_MgII_WuShen2022 = replace(qualcutDESI.MBH_MgII_WuShen2022, NaN=>missing)
-
-plot!(formatter=:latex)
-xlabel!(L"$\log_{10}[M_{\mathrm{BH},\ \mathrm{DESI}}(MgII)/\mathrm{M_{\odot}}]$")
-ylabel!(L"$\log_{10}[M_{\mathrm{BH},\ Euclid}(\mathrm{H}\alpha)/\mathrm{M_{\odot}}]$")
-
-xlims!(7.5,10)
-ylims!(7.5,10)
-
-#savefig(BHM_cutMg, "Figures/BHM_Euclid_DESI_scatter_Fig.png")
-
-
-panelfwhm = plot(MBHDESIHaEuclidcut, BHM_cutMg ,layout=grid(1, 2, widths=(4/8, 4/8)), size=(1600,600), margin=5*Plots.mm, left_margin=20*Plots.mm, bottom_margin=15*Plots.mm, titlefontsize=23,guidefontsize=23, tickfontsize=23, legendfontsize=23)
-savefig(panelfwhm, "Figures/BHM_Euclid_DESI_Panel_Fig.pdf")
-
-##################################################################################
-# Chi2/SNR scatter plot
-qualcut_DESI = desi[(desi.good .== 1) .&& (desi.redchisq .<6), :]
-
-#With Quality cut
-chicut_log = log10.(qualcut_DESI.redchisq)
-Kamehameha = @df desi scatter(:redchisq, :DER_SNR, label=L"$\mathrm{Full\ sample}$", mc=:salmon, ms=2, markerstrokewidth=0, ma=1, dpi=300)
-Kamecut = @df qualcut_DESI scatter!(:redchisq, :DER_SNR, label=L"$\mathrm{Good\ sample}$", mc=:royalblue3, markershape=:rect, ms=4, ma=1, dpi=300, legend=:bottomright)
-
-title!(L"$\mathrm{\textbf{DESI\ spectra}}$")
-plot!(formatter=:latex, xaxis=:log10, yaxis=:log10)
-plot!(xticks=([1, 2, 5, 10, 20, 50, 100, 500, 2000, 10000],[L"$1$",L"$2$",L"$5$", L"$10$",L"$20$",L"$50$", L"$100$", L"$500$", L"$2000$", L"$10000$"]), yticks=([2, 5, 10, 20],[L"$2$",L"$5$", L"$10$",L"$20$"]))
-xlabel!(L"$\mathrm{reduced}\ \chi^2$")
-ylabel!(L"$\mathrm{S/N_{spectrum}}$")
-
-savefig(Kamehameha, "Figures/Chi2vsSNR_cut_Fig_DESI.pdf")
-
-######################################################################################
 
 #############################################################################
-#############################################################################
-#############################################################################
-
-# QSO Continuum alpha index histogram
-DESI_qualcut = desimatched[coalesce.(desimatched.good .==1, false),:] #for the QSO continuum slope histogram
-Dalpha_qual = DESI_qualcut.QSOcont_alpha
-qualcut = df[(df.good .== 1),:] #quality cut for the Euclid data
-
-
-Dalphacut = @df DESI_qualcut stephist(:QSOcont_alpha, label=L"$\mathrm{DESI\ sample}$", bins=20, guidefontsize=16, tickfontsize=16, legendfontsize=14, color=:royalblue3, legend=:topright, z_order=1, normalize=:probability)
-
-alphacut = @df qualcut stephist!(:QSOcont_alpha, label=L"$Euclid\ \mathrm{sample}$", bins=80, guidefontsize=16, tickfontsize=16, legendfontsize=14, fill=false, color=:black, fillcolor=:black, legend=:topright,z_order=2, normalize=:probability)
-
-#Estimating the median for the DESI slope
-medianDESI  = @sprintf("%.2f",median(filter(!isnan, skipmissing(Dalpha_qual))))
-
-#Drawing the vertical lines for the medians
-z15 = vline!([median(filter(!isnan, skipmissing(Dalpha_qual)))], label=L"$\mathrm{m}\ \alpha_{\lambda,\ \mathrm{DESI}}(0.35<z<2.5)=-1.66$", color=:lightsalmon, linewidth = 5, thickness_scalling =1, linestyle=:dash, z_order=3,legendfontsize=14)
-
-z33 = vline!([median(filter(!isnan, skipmissing(z3.QSOcont_alpha)))], label=L"$\mathrm{m}\ \alpha_{\lambda,\ Euclid}(z>2)=-1.71$", color=:midnightblue, linewidth = 3, thickness_scalling =1, linestyle=:dashdot, z_order=4,legendfontsize=12)
-
-plot!(formatter=:latex)
-xlabel!(L"$\alpha_{\lambda}$")
-xlims!(-5,6)
-
-savefig(Dalphacut, "Figures/QSOcont_alpha_DESI_Fig.pdf")
-
-#############################################################################
-
-#################################################################
-#################################################################
-#################################################################
 #			SDSS plots 				#
-#################################################################
-#################################################################
-#################################################################
 
 Data = FITS("results_Euclid/QSFIT_RESULTS.fits")
 df = DataFrame(Data[2])
