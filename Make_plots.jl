@@ -129,20 +129,23 @@ let
         sμ = @sprintf("%.2f", μ)
         sσ = @sprintf("%.2f", σ)
         if showmean
-            stephist!(vv, label=label * L"\ (\tilde{\mu}=%$sμ)", color=color; SERIES_OPTS..., kws...)
+            out = stephist(vv, label=label * L"\ (\tilde{\mu}=%$sμ)", color=color; SERIES_OPTS..., kws...)
             vline!([median(vv)], label="", color=color, linewidth=2, linestyle=:dash)
         else
-            stephist!(vv, label=label, color=color; SERIES_OPTS..., kws...)
+            out = stephist(vv, label=label, color=color; SERIES_OPTS..., kws...)
         end
     end
     
-    plot(; GEN_OPTS..., legend=:topright, xlabel=L"$\alpha_{\lambda}$", ylabel=L"$\mathrm{Counts}$")
-    SERIES_OPTS = (bins=minimum(euclid.QSOcont_alpha):0.25:maximum(euclid.QSOcont_alpha), HISTO_OPTS...)
-    add_series!(euclid[qc.good              , :QSOcont_alpha], L"$\mathrm{Merged\ sample}$", :black, SERIES_OPTS, showmean=false, fill=false, linewidth=4)
-    add_series!(euclid[qc.good .&  sub.lowz , :QSOcont_alpha], L"$z < 0.8$"                , 1     , SERIES_OPTS)
-    add_series!(euclid[qc.good .&  sub.cosmo, :QSOcont_alpha], L"$0.8 < z < 1.9$"          , 2     , SERIES_OPTS)
-    add_series!(euclid[qc.good .&  sub.highz, :QSOcont_alpha], L"$z > 1.9$"                , 3     , SERIES_OPTS)
-    add_series!(desi[qc_desi.good           , :QSOcont_alpha], L"DESI"                     , 4     , SERIES_OPTS, z_order=2)
+    # plot(; GEN_OPTS..., legend=:topright, xlabel=L"$\alpha_{\lambda}$", ylabel=L"$\mathrm{Counts}$")
+    SERIES_OPTS = (bins=minimum(euclid.QSOcont_alpha):0.25:maximum(euclid.QSOcont_alpha), HISTO_OPTS...,
+                   bottom_margin=(-3.5, :mm), top_margin=(-1.5, :mm)) # <-- these are necessary to reduce space between the subplots
+    accum = Vector{Any}()
+    push!(accum, add_series!(euclid[qc.good              , :QSOcont_alpha], L"$\mathrm{Merged\ sample}$", :black, SERIES_OPTS, xformatter=_->"", showmean=false, fill=false, linewidth=4))
+    push!(accum, add_series!(euclid[qc.good .&  sub.lowz , :QSOcont_alpha], L"$z < 0.8$"                , 1     , SERIES_OPTS, xformatter=_->""))
+    push!(accum, add_series!(euclid[qc.good .&  sub.cosmo, :QSOcont_alpha], L"$0.8 < z < 1.9$"          , 2     , SERIES_OPTS, xformatter=_->"", ylabel=L"$\mathrm{Counts}$"))
+    push!(accum, add_series!(euclid[qc.good .&  sub.highz, :QSOcont_alpha], L"$z > 1.9$"                , 3     , SERIES_OPTS, xformatter=_->""))
+    push!(accum, add_series!(desi[qc_desi.good           , :QSOcont_alpha], L"DESI"                     , 4     , SERIES_OPTS, xlabel=L"$\alpha_{\lambda}$", bottom_margin=(-1., :mm)))
+    plot(accum..., layout=grid(length(accum), 1); GEN_OPTS..., legend=:topright)
     savefig("Figures/QSOcont_alpha_Hist_Redshift_2.pdf")
 end
 
