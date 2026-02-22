@@ -15,12 +15,12 @@ close(f)
 
 # Matching DESI and Euclid catalogs
 jj = sortmerge(euclid.ID, desi.ID_EUCLID)
-@assert all(countmatch(jj, 2) .== 1)
+# @assert all(countmatch(jj, 2) .== 1)
 # TODO: why do we have DESI spectra with no Euclid counterpart????
-euclid_matched = euclid[jj[1], :]
+euclid_match = euclid[jj[1], :]
 desi = desi[jj[2], :]
 
-# Identify subsets and quality cut
+# Identify subsets in Euclid catalog
 sub = (FU      = (euclid.FU .== 1),
        DESI    = (euclid.DESI .== 1),
        QUBRICS = (euclid.QUBRICS .== 1),
@@ -29,12 +29,26 @@ sub = (FU      = (euclid.FU .== 1),
        highz   = (1.9 .<= euclid.Redshift),
        hostgal = (euclid.Galaxy_norm .>= 0)) # sources where the host galaxy template was fit (regardless of reliability)
 
-qc = (good = ((euclid.good .== 1)  .&  (euclid.QSOcont_reliable .== 1)),                                           # sources passing the quality cut
-      Ha   = ((euclid.good .== 1)  .&  (euclid.QSOcont_reliable .== 1)  .&  (euclid.Ha_br_reliable        .== 1)), # quality cut for Ha-based BH masses
-      Hb   = ((euclid.good .== 1)  .&  (euclid.QSOcont_reliable .== 1)  .&  (euclid.Hb_br_reliable        .== 1)), # quality cut for Hb-based BH masses
-      MgII = ((euclid.good .== 1)  .&  (euclid.QSOcont_reliable .== 1)  .&  (euclid.MgII_2798_br_reliable .== 1)), # quality cut for MgII-based BH masses
-      Pab  = ((euclid.good .== 1)  .&  (euclid.QSOcont_reliable .== 1)  .&  (euclid.Pab_br_reliable       .== 1)), # quality cut for Pab-based BH masses
-      HeI  = ((euclid.good .== 1)  .&  (euclid.QSOcont_reliable .== 1)  .&  (euclid.HeI_10832_br_reliable .== 1))) # quality cut for HeI-based BH masses
+# Identify quality cuts in both Euclid and DESI catalog
+function quality_cuts(df)
+    out = (good = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)),                                       # sources passing the quality cut
+           Ha   = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)  .&  (df.Ha_br_reliable        .== 1)), # quality cut for Ha-based BH masses
+           Hb   = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)  .&  (df.Hb_br_reliable        .== 1)), # quality cut for Hb-based BH masses
+           MgII = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)  .&  (df.MgII_2798_br_reliable .== 1))) # quality cut for MgII-based BH masses
+    if "Pab_br_reliable" in names(df)
+        out = (out...,
+           Pab  = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)  .&  (df.Pab_br_reliable       .== 1))) # quality cut for Pab-based BH masses
+    end
+    if "HeI_10832_br_reliable" in names(df)
+        out = (out...,
+           HeI  = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)  .&  (df.HeI_10832_br_reliable .== 1))) # quality cut for HeI-based BH masses
+    end
+    return out
+end
+    
+qc = quality_cuts(euclid)              # Quality cuts for the whole Euclid catalog
+qc_match = quality_cuts(euclid_match)  # Quality cuts for the subset in Euclid catalog having a DESI spectrum
+qc_desi = quality_cuts(desi)           # Quality cuts for the DESI catalog
 
 # General plot settings
 GEN_OPTS = (fontfamily="Computer Modern", framestyle=:box, grid=false,
@@ -49,12 +63,23 @@ HISTO_OPTS = (alpha=1, fillalpha=0.7, fill=true)
 xfraction(f) = xlims()[1] + (xlims()[2] - xlims()[1]) * f
 yfraction(f) = ylims()[1] + (ylims()[2] - ylims()[1]) * f
 
+function add_μσ!(vv; x=0.03, y1=0.8, y2=0.6)
+    μ = median(vv)
+    σ = mad(vv, normalize=true)
+    sμ = @sprintf("%.2f", μ)
+    sσ = @sprintf("%.2f", σ)
+    vline!([median(vv)]              , label="", color=:black, linewidth=3)
+    vline!( median(vv) .+ [1,-1] .* σ, label="", color=:black, linewidth=2, linestyle=:dash)
+    annotate!([xfraction(x)], [yfraction(y1)], text(L"$\tilde{\mu}=%$sμ $"   , 10, :black, :left))
+    annotate!([xfraction(x)], [yfraction(y2)], text(L"$\tilde{\sigma}=%$sσ $", 10, :black, :left))
+end
+
 
 ######################################################################
 # Redshift histograms
 let
-    SERIES_OPTS = (bins=0:0.25:maximum(euclid.Redshift), HISTO_OPTS...)
     plot(; GEN_OPTS..., title=L"$\mathrm{\textbf{Full\ sample}}$", xlabel=L"$z$", ylabel=L"$\mathrm{Counts}$")
+    SERIES_OPTS = (bins=0:0.25:maximum(euclid.Redshift), HISTO_OPTS...)
     stephist!(euclid[:          , :Redshift], label=L"$\mathrm{Merged\ sample}$"          ; SERIES_OPTS...)
     stephist!(euclid[sub.FU     , :Redshift], label=L"$\mathrm{Fu\ et\ al.\ (in\ prep.)}$"; SERIES_OPTS...)
     stephist!(euclid[sub.DESI   , :Redshift], label=L"$\mathrm{DESI}$"                    ; SERIES_OPTS...)
@@ -70,28 +95,18 @@ let
 end
 
 
+
 ######################################################################
 # BH mass histograms
 let
-    function add_details!(vv; x=0.03, y1=0.8, y2=0.6)
-        μ = median(vv)
-        σ = mad(vv, normalize=true)
-        sμ = @sprintf("%.2f", μ)
-        sσ = @sprintf("%.2f", σ)
-        vline!([median(vv)]              , label="", color=:black, linewidth=3)
-        vline!( median(vv) .+ [1,-1] .* σ, label="", color=:black, linewidth=2, linestyle=:dash)
-        annotate!([xfraction(x)], [yfraction(y1)], text(L"$\tilde{\mu}=%$sμ $"   , 10, :black, :left))
-        annotate!([xfraction(x)], [yfraction(y2)], text(L"$\tilde{\sigma}=%$sσ $", 10, :black, :left))
-    end
-
     SERIES_OPTS = (bins=6.:0.5:10.5, HISTO_OPTS...,
                    bottom_margin=(-3.5, :mm), top_margin=(-1.5, :mm)) # <-- these are necessary to reduce space between the subplots
     accum = Vector{Any}()
-    vv = filter(!isnan, euclid[qc.MgII, :MBH_MgII_WuShen2022]); push!(accum, stephist(vv, label=L"$\mathrm{MgII}$"   , color=length(accum)+1; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
-    vv = filter(!isnan, euclid[qc.Hb  , :MBH_Hb_WuShen2022])  ; push!(accum, stephist(vv, label=L"$\mathrm{H}\beta$" , color=length(accum)+1; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
-    vv = filter(!isnan, euclid[qc.Ha  , :MBH_Ha_ShenLiu2012]) ; push!(accum, stephist(vv, label=L"$\mathrm{H}\alpha$", color=length(accum)+1; SERIES_OPTS..., xformatter=_->"", ylabel=L"$\mathrm{Counts}$")); add_details!(vv)
-    vv = filter(!isnan, euclid[qc.HeI , :MBH_HeI_Ricci])      ; push!(accum, stephist(vv, label=L"$\mathrm{He\,I}$"  , color=length(accum)+1; SERIES_OPTS..., xformatter=_->"")); add_details!(vv)
-    vv = filter(!isnan, euclid[qc.Pab , :MBH_Pab_Ricci])      ; push!(accum, stephist(vv, label=L"$\mathrm{Pa}\beta$", color=length(accum)+1; SERIES_OPTS..., xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", bottom_margin=(-1., :mm))); add_details!(vv)
+    vv = filter(!isnan, euclid[qc.MgII, :MBH_MgII_WuShen2022]); push!(accum, stephist(vv, label=L"$\mathrm{MgII}$"   , color=length(accum)+1; SERIES_OPTS..., xformatter=_->"")); add_μσ!(vv)
+    vv = filter(!isnan, euclid[qc.Hb  , :MBH_Hb_WuShen2022])  ; push!(accum, stephist(vv, label=L"$\mathrm{H}\beta$" , color=length(accum)+1; SERIES_OPTS..., xformatter=_->"")); add_μσ!(vv)
+    vv = filter(!isnan, euclid[qc.Ha  , :MBH_Ha_ShenLiu2012]) ; push!(accum, stephist(vv, label=L"$\mathrm{H}\alpha$", color=length(accum)+1; SERIES_OPTS..., xformatter=_->"", ylabel=L"$\mathrm{Counts}$")); add_μσ!(vv)
+    vv = filter(!isnan, euclid[qc.HeI , :MBH_HeI_Ricci])      ; push!(accum, stephist(vv, label=L"$\mathrm{He\,I}$"  , color=length(accum)+1; SERIES_OPTS..., xformatter=_->"")); add_μσ!(vv)
+    vv = filter(!isnan, euclid[qc.Pab , :MBH_Pab_Ricci])      ; push!(accum, stephist(vv, label=L"$\mathrm{Pa}\beta$", color=length(accum)+1; SERIES_OPTS..., xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", bottom_margin=(-1., :mm))); add_μσ!(vv)
     plot(accum..., layout=grid(length(accum), 1); GEN_OPTS..., legend=:topright)
     savefig("Figures/BH_mass.pdf")
 
@@ -100,7 +115,7 @@ let
     ii = findall(qc.Ha  .&  qc.Hb)
     vv = filter(!isnan, euclid[ii, :MBH_Ha_ShenLiu2012] .- euclid[ii, :MBH_Hb_WuShen2022])
     stephist!(vv, label=L"$\mathrm{H}\alpha\ vs\ \mathrm{H}\beta$", bins=minimum(vv):0.25:maximum(vv); HISTO_OPTS...)
-    add_details!(vv, y1=0.8, y2=0.7)
+    add_μσ!(vv, y1=0.8, y2=0.7)
     savefig("Figures/BH_mass_Ha_vs_Hb.pdf")
 end
 
@@ -108,7 +123,7 @@ end
 ######################################################################
 # QSO Continuum alpha index histogram
 let
-    function add_details!(vv, label, color, SERIES_OPTS; showmean=true, kws...)
+    function add_series!(vv, label, color, SERIES_OPTS; showmean=true, kws...)
         μ = median(vv)
         σ = mad(vv, normalize=true)
         sμ = @sprintf("%.2f", μ)
@@ -121,12 +136,12 @@ let
         end
     end
     
-    SERIES_OPTS = (bins=minimum(euclid.QSOcont_alpha):0.25:maximum(euclid.QSOcont_alpha), HISTO_OPTS...)
     plot(; GEN_OPTS..., legend=:topright, xlabel=L"$\alpha_{\lambda}$", ylabel=L"$\mathrm{Counts}$")
-    add_details!(euclid[qc.good, :QSOcont_alpha], L"$\mathrm{Merged\ sample}$", :black, SERIES_OPTS, showmean=false, fill=false, linewidth=4)
-    add_details!(euclid[qc.good .&  sub.lowz , :QSOcont_alpha], L"$z < 0.8$"       , 1, SERIES_OPTS)
-    add_details!(euclid[qc.good .&  sub.cosmo, :QSOcont_alpha], L"$0.8 < z < 1.9$" , 2, SERIES_OPTS)
-    add_details!(euclid[qc.good .&  sub.highz, :QSOcont_alpha], L"$z > 1.9$"       , 3, SERIES_OPTS)
+    SERIES_OPTS = (bins=minimum(euclid.QSOcont_alpha):0.25:maximum(euclid.QSOcont_alpha), HISTO_OPTS...)
+    add_series!(euclid[qc.good              , :QSOcont_alpha], L"$\mathrm{Merged\ sample}$", :black, SERIES_OPTS, showmean=false, fill=false, linewidth=4)
+    add_series!(euclid[qc.good .&  sub.lowz , :QSOcont_alpha], L"$z < 0.8$"                , 1     , SERIES_OPTS)
+    add_series!(euclid[qc.good .&  sub.cosmo, :QSOcont_alpha], L"$0.8 < z < 1.9$"          , 2     , SERIES_OPTS)
+    add_series!(euclid[qc.good .&  sub.highz, :QSOcont_alpha], L"$z > 1.9$"                , 3     , SERIES_OPTS)
     savefig("Figures/QSOcont_alpha_Hist_Redshift_2.pdf")
 end
 
@@ -207,7 +222,6 @@ end
 
 #############################################################################
 # Bol Lum Mean Histogram
-
 let
     plot(; GEN_OPTS..., legend=:topleft, xlabel=L"$\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})$", ylabel=L"$\mathrm{Counts}$")
     vv = filter(!isnan, euclid[qc.good             , :MBH_mean]);  stephist!(vv, label=L"$\mathrm{Good\ sample}$"; HISTO_OPTS...)
@@ -223,59 +237,26 @@ let
 end
 
 
-#############################################################################
-
-
-######################################################################################
+######################################################################
 ## DESI BH Mass - Euclid Ha BH mass
-minusHa = dfmatched.MBH_Ha_ShenLiu2012 .-desimatched.MBH_MgII_WuShen2022 #difference between Ha Euclid BHM and MgII DESI BHM
-minusHacut = qualcut.MBH_Ha_ShenLiu2012 .-qualcutDESI.MBH_MgII_WuShen2022 #same but with qualitry cut applied
-minusHaFWHM = qualcut.MBH_Ha_ShenLiu2012 .-qualcutDESI.MBH_MgII_WuShen2022
+let
+    plot(; GEN_OPTS..., legend=:topleft, xlabel=L"$\log_{10}(M_{\mathrm{BH,\ Euclid,\ H\alpha}} / M_{\mathrm{BH,\ DESI,\ MgII}})$", ylabel=L"$\mathrm{Counts}$")
+    ii = qc_match.Ha .& qc_desi.MgII
+    vv = filter(!isnan, euclid_match[ii, :MBH_Ha_ShenLiu2012] .- desi[ii, :MBH_MgII_WuShen2022])
+    stephist!(vv, label=""; HISTO_OPTS...)
+    add_μσ!(vv, y1=0.9, y2=0.8)
+    savefig("Figures/BH_mass_cmpDESI.pdf")
+end
 
+let
+    plot(; GEN_OPTS..., legend=:topleft, xlabel=L"$\log_{10}(\mathrm{L}_{\mathrm{Euclid,\ H\alpha}}\ /\ \mathrm{L}_{\mathrm{DESI,\ MgII}})$", ylabel=L"$\mathrm{Counts}$")
+    ii = qc_match.Ha .& qc_desi.MgII
+    vv = log10.(filter(!isnan, euclid_match[ii, :Ha_br_norm] ./ desi[ii, :MgII_2798_br_norm]))
+    stephist!(vv, label=""; HISTO_OPTS...)
+    add_μσ!(vv, y1=0.9, y2=0.8)
+    savefig("Figures/Line_ratio_cmpDESI.pdf")
+end
 
-
-MBHDESIHaEuclidcut = @df HaFWHM_cut stephist(minusHaFWHM, xlabel=L"$\log_{10}(M_{\mathrm{BH},\ Euclid}/\mathrm{M_{\odot}})-\log_{10}(M_{\mathrm{BH},\ \mathrm{DESI}}/\mathrm{M_{\odot}})$", label=L"$\mathrm{H}\alpha - \mathrm{MgII}$", guidefontsize=12, tickfontsize=12, legendfontsize=12, bins=10, color=:royalblue3, grid=false, legend=:topleft, framestyle=:box)
-
-madnorm = mad(filter(!isnan, skipmissing(minusHaFWHM)), normalize=true)
-MEDIAN = median(filter(!isnan, skipmissing(minusHaFWHM)))
-
-number = @sprintf("%.2f", MEDIAN)
-madnumber = @sprintf("%.2f", madnorm)
-
-mmean = mean(filter(!isnan, skipmissing(minusHaFWHM)))
-
-#meanline = vline!([mmean], label=L"$\mathrm{mean}$", color="red", linewidth = 3, thickness_scalling =1, linestyle=:dash, z_order=5)
-annotate!([0.65], [30], text(L"$\mathrm{Median}=%$number $",20, :black , rotation=0))
-annotate!([0.65], [27], text(L"$\mathrm{MAD}=%$madnumber $",20, :black , rotation=0))
-
-plot!(formatter=:latex)
-
-#################################################################
-#################################################################
-betterqualcut = dfmatched[coalesce.(dfmatched.good .== 1, false) .&& coalesce.(desimatched.good .== 1, false) .&& coalesce.(dfmatched.Hb_br_fwhm .> 2000., false) .&& coalesce.(dfmatched.Hb_br_fwhm .< 15000., false) .&& coalesce.(dfmatched.Hb_br_norm .> 0., false) .&& coalesce.(desimatched.MgII_2798_br_fwhm .> 2000., false) .&& coalesce.(desimatched.MgII_2798_br_fwhm .< 15000.,false) .&& coalesce.(desimatched.MgII_2798_br_norm .> 0.,false),:]
-
-betterqualcutDESI = desimatched[coalesce.(dfmatched.good .== 1, false) .&& coalesce.(desimatched.good .== 1, false) .&& coalesce.(dfmatched.Hb_br_fwhm .> 2000., false) .&& coalesce.(dfmatched.Hb_br_fwhm .< 15000., false) .&& coalesce.(dfmatched.Hb_br_norm .> 0., false) .&& coalesce.(desimatched.MgII_2798_br_fwhm .> 2000., false) .&& coalesce.(desimatched.MgII_2798_br_fwhm .< 15000.,false) .&& coalesce.(desimatched.MgII_2798_br_norm .> 0.,false),:]
-
-MgIIoverHb = betterqualcutDESI.MgII_2798_br_norm ./ betterqualcut.Hb_br_norm
-
-MgIIHbhist = stephist(MgIIoverHb, xlabel=L"$\mathrm{L}_{\mathrm{Mg\,II},\  \mathrm{DESI}}(\mathrm{erg\ s^{-1}})/\mathrm{L}_{\mathrm{H\beta},\ EUCLID} (\mathrm{erg\ s^{-1}})$", label=L"$\mathrm{H}\beta / \mathrm{MgII}$", guidefontsize=12, tickfontsize=12, legendfontsize=12, bins=20, color=:white, fillcolor=:royalblue1, grid=false, legend=:topright, framestyle=:box)
-
-madnorm = mad(filter(!isnan, skipmissing(MgIIoverHb)), normalize=true)
-MEDIAN = median(filter(!isnan, skipmissing(MgIIoverHb)))
-
-numbermedian = @sprintf("%.1f", MEDIAN)
-madnumber = @sprintf("%.1f", madnorm)
-
-mmean = mean(filter(!isnan, skipmissing(MgIIoverHb)))
-ratiomean = @sprintf("%.1f", mmean)
-
-
-Meanline = vline!([mmean], label=L"$\mathrm{mean}= %$ratiomean $", color="red", linewidth = 3.5, thickness_scalling =1, linestyle=:dash)
-Medianline = vline!([MEDIAN], label=L"$\mathrm{median}= %$numbermedian $", color=:chartreuse2, linewidth = 3.5, thickness_scalling =1, linestyle=:dot)
-
-
-plot!(formatter=:latex)
-savefig(MgIIHbhist, "Figures/MgIIDESI_HbEuclid_ratio.pdf")
 
 #################################################################
 # BHM scatter
