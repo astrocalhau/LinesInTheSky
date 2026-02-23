@@ -31,10 +31,11 @@ sub = (FU      = (euclid.FU .== 1),
 
 # Identify quality cuts in both Euclid and DESI catalog
 function quality_cuts(df)
-    out = (good = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)),                                       # sources passing the quality cut
-           Ha   = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)  .&  (df.Ha_br_reliable        .== 1)), # quality cut for Ha-based BH masses
-           Hb   = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)  .&  (df.Hb_br_reliable        .== 1)), # quality cut for Hb-based BH masses
-           MgII = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)  .&  (df.MgII_2798_br_reliable .== 1))) # quality cut for MgII-based BH masses
+    @assert all(df[df.good .== 1, :QSOcont_reliable] .== 1)  # QSOcont_reliable is a necessary condition for the source to be a "good" one
+    out = (good = ((df.good .== 1)),                                       # sources passing the quality cut
+           Ha   = ((df.good .== 1)  .&  (df.Ha_br_reliable        .== 1)), # quality cut for Ha-based BH masses
+           Hb   = ((df.good .== 1)  .&  (df.Hb_br_reliable        .== 1)), # quality cut for Hb-based BH masses
+           MgII = ((df.good .== 1)  .&  (df.MgII_2798_br_reliable .== 1))) # quality cut for MgII-based BH masses
     if "Pab_br_reliable" in names(df)
         out = (out...,
            Pab  = ((df.good .== 1)  .&  (df.QSOcont_reliable .== 1)  .&  (df.Pab_br_reliable       .== 1))) # quality cut for Pab-based BH masses
@@ -76,6 +77,7 @@ end
 
 ith_color(i) = palette(GEN_OPTS.palette)[i]
 
+
 ######################################################################
 # Redshift histograms
 let
@@ -94,7 +96,6 @@ let
     stephist!(euclid[sub.QUBRICS  .&  qc.good, :Redshift], label=L"\mathrm{QUBRICS}"                 ; SERIES_OPTS...)
     savefig("Figures/Redshift_Hist_Quality_Figure.pdf")
 end
-
 
 
 ######################################################################
@@ -141,11 +142,11 @@ let
     SERIES_OPTS = (bins=minimum(euclid.QSOcont_alpha):0.25:maximum(euclid.QSOcont_alpha), HISTO_OPTS...,
                    bottom_margin=(-3.5, :mm), top_margin=(-1.5, :mm)) # <-- these are necessary to reduce space between the subplots
     accum = Vector{Any}()
-    push!(accum, add_series!(euclid[qc.good              , :QSOcont_alpha], L"\mathrm{Merged\ sample}", :black, SERIES_OPTS, xformatter=_->"", showmean=false, fill=false, linewidth=4))
-    push!(accum, add_series!(euclid[qc.good .&  sub.lowz , :QSOcont_alpha], L"z < 0.8"                , 1     , SERIES_OPTS, xformatter=_->""))
-    push!(accum, add_series!(euclid[qc.good .&  sub.cosmo, :QSOcont_alpha], L"0.8 < z < 1.9"          , 2     , SERIES_OPTS, xformatter=_->"", ylabel=L"\mathrm{Counts}"))
-    push!(accum, add_series!(euclid[qc.good .&  sub.highz, :QSOcont_alpha], L"z > 1.9"                , 3     , SERIES_OPTS, xformatter=_->""))
-    push!(accum, add_series!(desi[qc_desi.good           , :QSOcont_alpha], L"DESI"                   , 4     , SERIES_OPTS, xlabel=L"\alpha_{\lambda}", bottom_margin=(-1., :mm)))
+    push!(accum, add_series!(euclid[qc.good              , :QSOcont_alpha], L"\mathrm{Merged\ sample}", :black      , SERIES_OPTS, xformatter=_->"", showmean=false, fill=false, linewidth=4))
+    push!(accum, add_series!(euclid[qc.good .&  sub.lowz , :QSOcont_alpha], L"z < 0.8"                , ith_color(1), SERIES_OPTS, xformatter=_->""))
+    push!(accum, add_series!(euclid[qc.good .&  sub.cosmo, :QSOcont_alpha], L"0.8 < z < 1.9"          , ith_color(2), SERIES_OPTS, xformatter=_->"", ylabel=L"\mathrm{Counts}"))
+    push!(accum, add_series!(euclid[qc.good .&  sub.highz, :QSOcont_alpha], L"z > 1.9"                , ith_color(3), SERIES_OPTS, xformatter=_->""))
+    push!(accum, add_series!(desi[qc_desi.good           , :QSOcont_alpha], L"DESI"                   , ith_color(4), SERIES_OPTS, xlabel=L"\alpha_{\lambda}", bottom_margin=(-1., :mm)))
     plot(accum..., layout=grid(length(accum), 1); GEN_OPTS..., legend=:topright)
     savefig("Figures/QSOcont_alpha_Hist_Redshift_2.pdf")
 end

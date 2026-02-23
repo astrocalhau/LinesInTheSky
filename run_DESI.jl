@@ -100,7 +100,8 @@ function calculate_additional_columns!(results)
     results[!, :good] = Int.((results.NPOINTS .> 6000)                   .&
                              (results.nneg ./ results.NPOINTS .< 0.1)    .&
                              (results.redchisq .< 6)                     .&
-                             (results.DER_SNR .> 3))
+                             (results.DER_SNR .> 3)                      .&
+                             (results.QSOcont_reliable .== 1))
 end
 
 

@@ -144,12 +144,11 @@ function calculate_additional_columns!(results)
     add_Lbol_eddratio_Euclid!(results)
 
     # Creates Quality cut columns
-    results[!, :good] = Int.(((results.NPOINTS .> 450)                                        .&
-                              (results.nneg ./ results.NPOINTS .< 0.1)                        .&
-                              (results.DER_SNR .> 3)                                          .&
-                              (results.redchisq .< 6)                                         .&
-                              (results.QSOcont_alpha .> -5) .& (results.QSOcont_alpha .<  5)  .&
-                              (results.QSOcont_norm .> results.QSOcont_norm_unc)))
+    results[!, :good] = Int.((results.NPOINTS .> 450)                                        .&
+                             (results.nneg ./ results.NPOINTS .< 0.1)                        .&
+                             (results.DER_SNR .> 3)                                          .&
+                             (results.redchisq .< 6)                                         .&
+                             (results.QSOcont_reliable .== 1))
 end
 
 
