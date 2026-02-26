@@ -143,7 +143,7 @@ let
     # plot(; GEN_OPTS..., legend=:topright, xlabel=L"\alpha_{\lambda}", ylabel=L"\mathrm{Counts}")
     SERIES_OPTS = (bins=minimum(euclid.QSOcont_alpha):0.25:maximum(euclid.QSOcont_alpha), HISTO_OPTS...,
                    bottom_margin=(-3.5, :mm), top_margin=(-1.5, :mm), # <-- these are necessary to reduce space between the subplots
-                   left_margin=(-3.5, :mm), # <-- to reduce wasted space to the left of the plot
+                   left_margin=(-2.5, :mm), # <-- to reduce wasted space to the left of the plot
                    size=(500, 850)) # <-- Controls size of overall plot
     accum = Vector{Any}()
     push!(accum, add_series!(euclid[qc.good              , :QSOcont_alpha], L"\mathrm{Good\ sample}"  , :black      , SERIES_OPTS, xformatter=_->"", fill=false, linewidth=4))
@@ -440,7 +440,7 @@ iii = findall(sub.QUBRICS      .& qc.good)
 @printf("\n")
 
 ii = qc.Hb .& qc.Ha
-@printf("Mean ratio of Euclid Ha and Euclid Hb: %f +/- %.2f \n"       , mean((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm])), std((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm])))
+@printf("Mean ratio of Euclid Ha and Euclid Hb: %f +/- %.2f \n"            , mean((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm]))                   , std((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm])))
 
 @printf("\n")
 
