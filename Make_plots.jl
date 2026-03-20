@@ -4,6 +4,7 @@ using Statistics, StatsBase, Plots, StatsPlots, LaTeXStrings, DataFrames, FITSIO
 # Script to create the various figures for the Euclid Q1 Paper "Lines in the Sky"
 
 mkpath("Figures")
+output="Figures"
 
 f = FITS("results_Euclid/QSFIT_RESULTS.fits")
 euclid = DataFrame(f[2])
@@ -88,14 +89,14 @@ let
     stephist!(euclid[sub.FU     , :Redshift], label=L"\mathrm{Fu\ et\ al.\ (2026)}"; SERIES_OPTS...)
     stephist!(euclid[sub.DESI   , :Redshift], label=L"\mathrm{DESI}"                    ; SERIES_OPTS...)
     stephist!(euclid[sub.QUBRICS, :Redshift], label=L"\mathrm{QUBRICS}"                 ; SERIES_OPTS...)
-    savefig("Figures/Redshift_Hist_full_sample.pdf")
+    savefig("$(output)/Redshift_Hist_full_sample.pdf")
 
     plot(; GEN_OPTS..., title="", xlabel=L"z", ylabel=L"\mathrm{Counts}")
     stephist!(euclid[                 qc.good, :Redshift], label=L"\mathrm{Good\ sample}"          ; SERIES_OPTS...)
     stephist!(euclid[sub.FU       .&  qc.good, :Redshift], label=L"\mathrm{Fu\ et\ al.\ (2026)}"; SERIES_OPTS...)
     stephist!(euclid[sub.DESI     .&  qc.good, :Redshift], label=L"\mathrm{DESI}"                    ; SERIES_OPTS...)
     stephist!(euclid[sub.QUBRICS  .&  qc.good, :Redshift], label=L"\mathrm{QUBRICS}"                 ; SERIES_OPTS...)
-    savefig("Figures/Redshift_Hist_Quality_sample.pdf")
+    savefig("$(output)/Redshift_Hist_Quality_sample.pdf")
 end
 
 
@@ -113,7 +114,7 @@ let
     vv = filter(!isnan, euclid[qc.HeI , :MBH_HeI_Ricci])      ; push!(accum, stephist(vv, label=L"\mathrm{He\,I}"  , color=ith_color(length(accum)+1); SERIES_OPTS..., xformatter=_->"")); add_μσ!(vv)
     vv = filter(!isnan, euclid[qc.Pab , :MBH_Pab_Ricci])      ; push!(accum, stephist(vv, label=L"\mathrm{Pa}\beta", color=ith_color(length(accum)+1); SERIES_OPTS..., xlabel=L"\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})", bottom_margin=(-1., :mm))); add_μσ!(vv)
     plot(accum..., layout=grid(length(accum), 1); GEN_OPTS..., legend=:topright)
-    savefig("Figures/BH_mass.pdf")
+    savefig("$(output)/BH_mass.pdf")
 
     # Comparison between Ha and Hb
     plot(; GEN_OPTS..., xlabel=L"\log_{10}(M_{\mathrm{H}\alpha}/M_{\mathrm{H}\beta})", ylabel=L"\mathrm{Counts}")
@@ -121,7 +122,7 @@ let
     vv = filter(!isnan, euclid[ii, :MBH_Ha_ShenLiu2012] .- euclid[ii, :MBH_Hb_WuShen2022])
     stephist!(vv, label=L"\mathrm{H}\alpha\ vs\ \mathrm{H}\beta", bins=minimum(vv):0.25:maximum(vv); HISTO_OPTS...)
     add_μσ!(vv, y1=0.8, y2=0.7)
-    savefig("Figures/BH_mass_Ha_vs_Hb.pdf")
+    savefig("$(output)/BH_mass_Ha_vs_Hb.pdf")
 end
 
 
@@ -153,7 +154,7 @@ let
     push!(accum, add_series!(euclid[qc.good .&  sub.highz, :QSOcont_alpha], L"z > 1.9"                , ith_color(3), SERIES_OPTS, xformatter=_->""))
     push!(accum, add_series!(desi[qc_desi.good           , :QSOcont_alpha], L"DESI"                   , ith_color(4), SERIES_OPTS, xlabel=L"\alpha_{\lambda}", bottom_margin=(-6., :mm)))
     plot(accum..., layout=grid(length(accum), 1); GEN_OPTS..., legend=:topright)
-    savefig("Figures/QSOcont_alpha_Hist_Redshift.pdf")
+    savefig("$(output)/QSOcont_alpha_Hist_Redshift.pdf")
 end
 
 
@@ -164,7 +165,7 @@ let
     scatter!(euclid[:      , :redchisq], euclid[:      , :DER_SNR], label=L"\mathrm{Full\ sample}", ms=2, markerstrokewidth=0)
     scatter!(euclid[qc.good, :redchisq], euclid[qc.good, :DER_SNR], label=L"\mathrm{Good\ sample}", ms=4, ma=0.6, markershape=:circ)
     plot!(xaxis=:log10, yaxis=:log10)
-    savefig("Figures/Chi2vsSNR_cut.pdf")
+    savefig("$(output)/Chi2vsSNR_cut.pdf")
 end
 
 
@@ -177,7 +178,7 @@ let
     stephist!(euclid[sub.FU      .& qc.good, :Hmag], label=L"\mathrm{Fu\ et\ al.\ (2026)}"; SERIES_OPTS...)
     stephist!(euclid[sub.DESI    .& qc.good, :Hmag], label=L"\mathrm{DESI}"                    ; SERIES_OPTS...)
     stephist!(euclid[sub.QUBRICS .& qc.good, :Hmag], label=L"\mathrm{QUBRICS}"                 ; SERIES_OPTS...)
-    savefig("Figures/Hmag_Hist.pdf")
+    savefig("$(output)/Hmag_Hist.pdf")
 end
 
 
@@ -189,7 +190,7 @@ let
     i = findall(sub.FU      .& qc.good); scatter!(euclid[sub.FU      .& qc.good, :Redshift], euclid[i, :Hmag], label=L"\mathrm{Fu\ et\ al.\ (2026)}", markershape=:rect     ; SERIES_OPTS...)
     i = findall(sub.DESI    .& qc.good); scatter!(euclid[sub.DESI    .& qc.good, :Redshift], euclid[i, :Hmag], label=L"\mathrm{DESI}"       , markershape=:pentagon ; SERIES_OPTS...)
     i = findall(sub.QUBRICS .& qc.good); scatter!(euclid[sub.QUBRICS .& qc.good, :Redshift], euclid[i, :Hmag], label=L"\mathrm{QUBRICS}"    , markershape=:utriangle; SERIES_OPTS...)
-    savefig("Figures/Hmag_vs_z_cut.pdf")
+    savefig("$(output)/Hmag_vs_z_cut.pdf")
 end
 
 
@@ -208,7 +209,7 @@ let
     push!(accum, stephist(log10.(euclid[qc.HeI , :HeI_10832_br_norm]) .+ 42, label=L"\mathrm{He\,I}";   color=ith_color(length(accum)+1), SERIES_OPTS..., xformatter=_->""))
     push!(accum, stephist(log10.(euclid[qc.Pab , :Pab_br_norm])       .+ 42, label=L"\mathrm{Pa}\beta"; color=ith_color(length(accum)+1), SERIES_OPTS..., xlabel=L"\log_{10}(L_{\mathrm{line}}/\mathrm{erg\ s^{-1}})", bottom_margin=(-7., :mm)))
     plot(accum..., layout=grid(length(accum), 1); GEN_OPTS...)
-    savefig("Figures/Lines_lum.pdf")
+    savefig("$(output)/Lines_lum.pdf")
 end
 
 let
@@ -234,7 +235,7 @@ let
 
     accum = permutedims(reshape(accum,     div(length(accum), 2), 2)) # reorder subplots so that they appear in the correct order
     plot(reshape(accum, :)..., layout=grid(div(length(accum), 2), 2); GEN_OPTS...)
-    savefig("Figures/Lines_FWHM_Voff.pdf")
+    savefig("$(output)/Lines_FWHM_Voff.pdf")
 end
 
 
@@ -244,14 +245,14 @@ let
     plot(; GEN_OPTS..., legend=:topleft, xlabel=L"\log_{10}(M_{\mathrm{BH}}/\mathrm{M_{\odot}})", ylabel=L"\mathrm{Counts}")
     vv = filter(!isnan, euclid[qc.good             , :MBH_mean]);  stephist!(vv, label=L"\mathrm{Good\ sample}"; HISTO_OPTS...)
     vv = filter(!isnan, euclid[qc.good .& sub.cosmo, :MBH_mean]);  stephist!(vv, label=L"0.8 < z < 1.9"        ; HISTO_OPTS...)
-    savefig("Figures/Mean_BH_Mass.pdf")
+    savefig("$(output)/Mean_BH_Mass.pdf")
 end
 
 let
     plot(; GEN_OPTS..., legend=:topleft, xlabel=L"\log_{10}(L_{bol}/\mathrm{erg\ s^{-1}})", ylabel=L"\mathrm{Counts}")
     vv = filter(!isnan, euclid[qc.good             , :Lbol_mean]); stephist!(log10.(vv), label=L"\mathrm{Good\ sample}"; HISTO_OPTS...)
     vv = filter(!isnan, euclid[qc.good .& sub.cosmo, :Lbol_mean]); stephist!(log10.(vv), label=L"0.8 < z < 1.9"        ; HISTO_OPTS...)
-    savefig("Figures/Mean_Lbol.pdf")
+    savefig("$(output)/Mean_Lbol.pdf")
 end
 
 
@@ -263,7 +264,7 @@ let
     vv = filter(!isnan, euclid_match[ii, :MBH_Ha_ShenLiu2012] .- desi[ii, :MBH_MgII_WuShen2022])
     stephist!(vv, label=""; HISTO_OPTS...)
     add_μσ!(vv, y1=0.9, y2=0.8)
-    savefig("Figures/BH_mass_cmpDESI_histo.pdf")
+    savefig("$(output)/BH_mass_cmpDESI_histo.pdf")
 
     plot(; GEN_OPTS..., xlabel=L"\log_{10}(M_{\mathrm{BH,\ Euclid,\ H\alpha}}/\mathrm{M_{\odot}})", ylabel=L"\log_{10}(M_{\mathrm{BH,\ DESI,\ MgII}}/\mathrm{M_{\odot}})", xlims=(7, 10.1), ylims=(7,10.1), legend=:topleft, legendfontsize=8)
     ii = qc_match.Ha .& qc_desi.MgII
@@ -275,7 +276,7 @@ let
     scatter!(euclid_match[iii, :MBH_Ha_ShenLiu2012], desi[iii, :MBH_MgII_WuShen2022], label=L"|\mathrm{log_{10}}(\mathrm{MBH}_{Euclid})-\mathrm{log_{10}}(\mathrm{MBH_{DESI}})|>0.5")
     scatter!(euclid_match[iv, :MBH_Ha_ShenLiu2012], desi[iv, :MBH_MgII_WuShen2022], label=L"\mathrm{Line \,\, centre} - \mathrm{spectrum \,\, edge}<150 \AA", markershape=:dtriangle)
     plot!([xlims()...], [ylims()...], label=L"1:1", linecolor=:black, ls=:dash, lw=2)
-    savefig("Figures/BH_mass_cmpDESI_scatter.pdf")
+    savefig("$(output)/BH_mass_cmpDESI_scatter.pdf")
 end
 
 #######################################################################
@@ -287,7 +288,7 @@ let
     vv = (filter(!isnan, euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm]))
     stephist!(vv, label=""; HISTO_OPTS...)
     add_μσ!(vv, y1=0.9, y2=0.8)
-    savefig("Figures/Line_ratio_Ha_Hb.pdf")
+    savefig("$(output)/Line_ratio_Ha_Hb.pdf")
 end
 
 # Comparison with DESI
@@ -297,7 +298,7 @@ let
     vv = log10.(filter(!isnan, euclid_match[ii, :Ha_br_norm] ./ desi[ii, :MgII_2798_br_norm]))
     stephist!(vv, label=""; HISTO_OPTS...)
     add_μσ!(vv, y1=0.9, y2=0.8)
-    savefig("Figures/Line_ratio_cmpDESI_Ha.pdf")
+    savefig("$(output)/Line_ratio_cmpDESI_Ha.pdf")
 end
 
 let
@@ -306,7 +307,7 @@ let
     vv = log10.(filter(!isnan, desi[ii, :MgII_2798_br_norm] ./ euclid_match[ii, :Hb_br_norm]))
     stephist!(vv, label=""; HISTO_OPTS...)
     add_μσ!(vv, y1=0.9, y2=0.8)
-    savefig("Figures/Line_ratio_cmpDESI_Hb.pdf")
+    savefig("$(output)/Line_ratio_cmpDESI_Hb.pdf")
 end
 
 ######################################################################
@@ -316,7 +317,7 @@ let
     scatter!(desi[:           , :redchisq], desi[:           , :DER_SNR], label=L"\mathrm{Full\ sample}", ms=2, markerstrokewidth=0)
     scatter!(desi[qc_desi.good, :redchisq], desi[qc_desi.good, :DER_SNR], label=L"\mathrm{Good\ sample}", ms=4, ma=0.6, markershape=:circ)
     plot!(xaxis=:log10, yaxis=:log10)
-    savefig("Figures/Chi2vsSNR_cut_DESI.pdf")
+    savefig("$(output)/Chi2vsSNR_cut_DESI.pdf")
 end
 
 
@@ -330,7 +331,7 @@ let
     scatter!(euclid[qc.Ha  , :Redshift], euclid[qc.Ha  , :MBH_Ha_ShenLiu2012] , label=L"\mathrm{H\alpha}", markershape=:rect     ; SERIES_OPTS...)
     scatter!(euclid[qc.Hb  , :Redshift], euclid[qc.Hb  , :MBH_Hb_WuShen2022]  , label=L"\mathrm{H\beta}" , markershape=:pentagon ; SERIES_OPTS...)
     scatter!(euclid[qc.MgII, :Redshift], euclid[qc.MgII, :MBH_MgII_WuShen2022], label=L"\mathrm{Mg\,II}" , markershape=:utriangle; SERIES_OPTS...)
-    savefig("Figures/MBH_z.png")
+    savefig("$(output)/MBH_z.png")
 
     SERIES_OPTS = (ma=0.6,)
     plot(; GEN_OPTS..., legend=:bottomright, xlims=(44, 47.5),
@@ -348,9 +349,73 @@ let
         plot!(log10.(Lbol), log10.(M), label=L"\eta=%$eddratio", linestyle=:dash)
     end
     plot!()
-    savefig("Figures/MBH_Lbol.png")
+    savefig("$(output)/MBH_Lbol.png")
 end
 
+#########################################################################
+#########################################################################
+#Ploting spectra 
+#Fig. A.1
+
+let
+    SERIES_OPTS = (size=(1150,350), GEN_OPTS...,
+    		bottom_margin=(3, :mm),
+    		xlims=(12000,18500))
+    
+    #First panel    
+    spectra = FITS("input_Euclid/fits/-602351047484917583.fits")
+    spec = DataFrame(spectra[2])
+    close(spectra)
+    
+    SPE = plot(spec.WAVELENGTH                 , spec.SIGNAL             , title=L"-602351047484917583"               , label=""                   , linestyle=:solid    , ylims=(0, 1.5))
+    
+    #lines
+    Ha =     vline!([14920]                    , label=""                , color="black"         , linewidth=1        , linestyle=:dash)
+    OIII1 =  vline!([15250]                    , label=""                , color="black"         , linewidth=1        , linestyle=:dash)
+    OIII2 =  vline!([15380]                    , label=""                , color="black"         , linewidth=1        , linestyle=:dash)
+    Hgamma = vline!([13320]                    , label=""                , color="black"         , linewidth=1        , linestyle=:dash)
+    
+    #Annotations for the lines
+    Ha_label = annotate!(14800                 , 1.2                     , Plots.text(L"\rm H\beta"                       , 8                         , :dark            , rotation=90))
+    OIII1_label = annotate!(15090              , 1.23                    , Plots.text(L"${\rm O\textsc{iii}\lambda 4959}$", 8                         , :dark            , rotation=90))
+    OIII2_label = annotate!(15530              , 1.23                    , Plots.text(L"${\rm O\textsc{iii}\lambda 5007}$", 8                         , :dark            , rotation=90))
+    Hgamma_label = annotate!(13100             , 1.2                     , Plots.text(L"\rm H\gamma"                      , 8                         , :dark            , rotation=90))
+    
+    
+
+    #Second panel
+    spectra = FITS("input_Euclid/fits/-623046191470992718.fits")
+    spec = DataFrame(spectra[2])
+    close(spectra)
+    
+    SPE2 = plot(spec.WAVELENGTH                 , spec.SIGNAL             , title=L"-623046191470992718"               , label=""                   , linestyle=:solid    , ylims=(0, 0.2))
+    
+    #Assmbling the panels together
+    plot(SPE, SPE2, layout=grid(1, 2); SERIES_OPTS..., xlabel=L"\mathrm{Wavelength\, (\AA)}", ylabel=L"\mathrm{Flux \, \, (10^{-16} \,\, erg \,\, cm^{-2} \,\, s^{-1})}")
+    savefig("$(output)/Example_Spectrum.pdf")
+end 
+
+#Fig. A.2
+
+let
+    SERIES_OPTS = (size=(1150,350), GEN_OPTS...,
+    		bottom_margin=(3, :mm),
+    		xlims=(12000,18500))
+    
+    accum = Vector{Any}()
+    filename=["2721144714662952585", "2689906553676437265"]
+    
+    for file in filename
+        spectra = FITS("input_Euclid/fits/$(file).fits")
+        spec = DataFrame(spectra[2])
+        close(spectra)
+        
+        push!(accum, plot(spec.WAVELENGTH             , spec.SIGNAL             , title=latexstring("$(file)")       , label=""        , linestyle=:solid))
+    end
+    
+    plot(accum..., layout=grid(1, length(accum)); SERIES_OPTS..., xlabel=L"\mathrm{Wavelength\, (\AA)}", ylabel=L"\mathrm{Flux \, \, (10^{-16} \,\, erg \,\, cm^{-2} \,\, s^{-1})}")
+    savefig("$(output)/bad_spectra_example.pdf")
+end 
 
 ##########################################################################
 #Number counts for the paper
