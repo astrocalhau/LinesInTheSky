@@ -367,7 +367,9 @@ let
     spec = DataFrame(spectra[2])
     close(spectra)
     
-    SPE = plot(spec.WAVELENGTH                 , spec.SIGNAL             , title=L"-602351047484917583"               , label=""                   , linestyle=:solid    , ylims=(0, 1.5))
+    mask = (spec.WAVELENGTH .> 12000) .& (spec.WAVELENGTH .< 18500) #to avoid edges of spectra, which are always problematic
+    
+    SPE = plot(spec.WAVELENGTH[mask]                 , spec.SIGNAL[mask]             , title=L"-602351047484917583"               , label=""                   , linestyle=:solid    , ylims=(0, 1.5))
     
     #lines
     Ha =     vline!([14920]                    , label=""                , color="black"         , linewidth=1        , linestyle=:dash)
@@ -403,14 +405,16 @@ let
     		xlims=(12000,18500))
     
     accum = Vector{Any}()
-    filename=["2721144714662952585", "2689906553676437265"]
+    filename=["2689906553676437265", "2721144714662952585"]
     
     for file in filename
         spectra = FITS("input_Euclid/fits/$(file).fits")
         spec = DataFrame(spectra[2])
         close(spectra)
         
-        push!(accum, plot(spec.WAVELENGTH             , spec.SIGNAL             , title=latexstring("$(file)")       , label=""        , linestyle=:solid))
+        mask = (spec.WAVELENGTH .> 12000) .& (spec.WAVELENGTH .< 18500) #to avoid edges of spectra, which are always problematic
+        
+        push!(accum, plot(spec.WAVELENGTH[mask]             , spec.SIGNAL[mask]             , title=latexstring("$(file)")       , label=""        , linestyle=:solid))
     end
     
     plot(accum..., layout=grid(1, length(accum)); SERIES_OPTS..., xlabel=L"\mathrm{Wavelength\, (\AA)}", ylabel=L"\mathrm{Flux \, \, (10^{-16} \,\, erg \,\, cm^{-2} \,\, s^{-1})}")
