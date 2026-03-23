@@ -1,4 +1,4 @@
-using Statistics, StatsBase, Plots, StatsPlots, LaTeXStrings, DataFrames, FITSIO, Printf, QSFit, JSON, SortMerge
+using Statistics, StatsBase, Plots, StatsPlots, LaTeXStrings, DataFrames, FITSIO, Printf, QSFit, TypedJSON, SortMerge, GModelFit
 
 ######################################################################
 # Script to create the various figures for the Euclid Q1 Paper "Lines in the Sky"
@@ -57,7 +57,7 @@ qc_desi = quality_cuts(desi)           # Quality cuts for the DESI catalog
 GEN_OPTS = (fontfamily="Computer Modern", framestyle=:box, grid=false,
             background_color_legend=nothing, foreground_color_legend=nothing, # , legend_column=-1
             # palette=:darkrainbow, # :seaborn_dark6, :rainbow
-            palette = [:darkred, :darkgreen, :darkblue, :darkorange3, :purple],
+            palette = [:darkred, :darkgreen, :darkblue, :darkorange3, :purple, :gray],
             thickness_scaling=1.4)
 # , titlefontsize=8, guidefontsize=8, tickfontsize=8, legendfontsize=7
 
@@ -369,7 +369,7 @@ let
     
     mask = (spec.WAVELENGTH .> 12000) .& (spec.WAVELENGTH .< 18500) #to avoid edges of spectra, which are always problematic
     
-    SPE = plot(spec.WAVELENGTH[mask]                 , spec.SIGNAL[mask]             , title=L"-602351047484917583"               , label=""                   , linestyle=:solid    , ylims=(0, 1.5))
+    SPE = plot(spec.WAVELENGTH[mask]                 , spec.SIGNAL[mask]             , title=L"-602351047484917583"               , label=""           , linecolor =:darkblue,     linestyle=:solid    , ylims=(0, 1.5))
     
     #lines
     Ha =     vline!([14920]                    , label=""                , color="black"         , linewidth=1        , linestyle=:dash)
@@ -390,13 +390,14 @@ let
     spec = DataFrame(spectra[2])
     close(spectra)
     
-    SPE2 = plot(spec.WAVELENGTH                 , spec.SIGNAL             , title=L"-623046191470992718"               , label=""                   , linestyle=:solid    , ylims=(0, 0.2))
+    SPE2 = plot(spec.WAVELENGTH                 , spec.SIGNAL             , title=L"-623046191470992718"               , label=""                     , linecolor = :darkblue,     linestyle=:solid    , ylims=(0, 0.2))
     
     #Assmbling the panels together
     plot(SPE, SPE2, layout=grid(1, 2); SERIES_OPTS..., xlabel=L"\mathrm{Wavelength\, (\AA)}", ylabel=L"\mathrm{Flux \, \, (10^{-16} \,\, erg \,\, cm^{-2} \,\, s^{-1})}")
     savefig("$(output)/Example_Spectrum.pdf")
 end 
 
+#########################################################################
 #Fig. A.2
 
 let
@@ -414,12 +415,71 @@ let
         
         mask = (spec.WAVELENGTH .> 12000) .& (spec.WAVELENGTH .< 18500) #to avoid edges of spectra, which are always problematic
         
-        push!(accum, plot(spec.WAVELENGTH[mask]             , spec.SIGNAL[mask]             , title=latexstring("$(file)")       , label=""        , linestyle=:solid))
+        push!(accum, plot(spec.WAVELENGTH[mask]             , spec.SIGNAL[mask]             , title=latexstring("$(file)")       , label=""        , linecolor = :darkblue, linestyle=:solid))
     end
     
     plot(accum..., layout=grid(1, length(accum)); SERIES_OPTS..., xlabel=L"\mathrm{Wavelength\, (\AA)}", ylabel=L"\mathrm{Flux \, \, (10^{-16} \,\, erg \,\, cm^{-2} \,\, s^{-1})}")
     savefig("$(output)/bad_spectra_example.pdf")
 end 
+
+##########################################################################
+# Fig. A.1
+let
+    SERIES_OPTS = (size=(1200,1600), GEN_OPTS...,
+    		bottom_margin=(1, :mm),
+    		top_margin=(8,:mm))
+    
+    accum = Vector{Any}()
+    filename = [2646421689653200404, -640749119461755401, -646101801481095171]
+    
+    for file in filename
+        ######
+        # Read the JSON files
+        res = TypedJSON.deserialize("results_Euclid/JSON/$(file).json.gz")
+               
+        waveor = GModelFit.coords(domain(res.data)) #original wavelength input (restframed)
+        wavecomp = GModelFit.coords(domain(res.bestfit)) #Domain for the components
+        fluxor = values(res.data) #original flux input (restframed)
+        flux = GModelFit.folded(res.bestfit)
+        broad = res.bestfit(:BroadLines) #Broad lines component
+        iron = res.bestfit(:Iron) #Iron lines component
+        QSOcont = res.bestfit(:QSOcont) #QSO continuum component
+        Nuisance = res.bestfit(:NuisanceLines) #Nuisance lines component
+        
+        esp = plot(waveor          , fluxor            , label=L"{\mathrm{Spectrum}}"                        , linestyle=:solid             , linecolor=ith_color(6)                          )
+        plot!(waveor               , flux              , label=L"\mathrm{Model}"                             , linestyle=:solid             , linecolor=ith_color(1)             , linewidth=2)
+        plot!(wavecomp             , broad             , label=L"\mathrm{Broad \, \, Lines}"                 , linestyle=:solid             , linecolor=ith_color(2)                          )
+        plot!(wavecomp             , iron              , label=L"\mathrm{Iron}"                              , linestyle=:solid             , linecolor=ith_color(3)                          )
+        plot!(wavecomp             , QSOcont           , label=L"\mathrm{QSO \,\, continuum}"                , linestyle=:solid             , linecolor=ith_color(4)                          )
+        plot!(wavecomp             , Nuisance          , label=L"\mathrm{Nuisance \,\, Lines}"               , linestyle=:solid             , linecolor=ith_color(5)                          )
+        vline!([6564.6]                                , label=""                                            , linestyle=:dash              , color="black"                                   )
+        vline!([4862.7]                                , label=""                                            , linestyle=:dash              , color="black"                                   )
+        vline!([2799.9]                                , label=""                                            , linestyle=:dash              , color="black"                                   )
+        annotate!([6500.6]         , [1.5]             , text(L"\mathrm{H\alpha}"                                                           , :black                                      ,12))
+        if file == -640749119461755401
+            annotate!([4920.7]     , [4.]              , text(L"\mathrm{H\beta}"                                                            , :black                                      ,12))
+        else
+            annotate!([4920.7]     , [1.5]             , text(L"\mathrm{H\beta}"                                                            , :black                                      ,12))
+        end
+        
+        annotate!([2880]           , [30]              , text(L"\mathrm{MgII}"                                                              , :black                                      ,12))
+        annotate!((0.05,1.1)                            , text(L"\textbf{%$(file)}"                                   , :left                         , :black                                      ,12))
+        xlims!(minimum(waveor), maximum(waveor))
+        
+        if file in [-640749119461755401, -646101801481095171]
+            plot!(legend=false)
+        else
+            plot!(legend=:top)
+        end
+        
+        push!(accum, esp)
+        #######
+    end
+
+    plot(accum..., layout=grid(length(accum), 1); SERIES_OPTS..., xlabel=L"$\mathrm{Wavelength \, \, (\AA)}$", ylabel=L"$\mathrm{Lum. \, dens. \, (10^{42} \, erg \, s^{-1} \, \AA^{-1})}$")    
+    savefig("$(output)/QSFIT_Ha_Hb_MgII.png")
+
+end
 
 ##########################################################################
 #Number counts for the paper
@@ -470,41 +530,41 @@ iii = findall(sub.QUBRICS      .& qc.good)
 
 @printf("\n")
 
-@printf("Number of sources with Ha line: %i \n"      , count(qc.Ha))
-@printf("Mean luminosity for Ha: %.2f +/- %.2f \n", mean(log10.(euclid[qc.Ha, :Ha_br_norm]) .+ 42)         , std(log10.(euclid[qc.Ha, :Ha_br_norm]) .+ 42))
-@printf("Mean FWHM for Ha: %.2f +/- %.2f \n"      , mean(log10.(euclid[qc.Ha, :Ha_br_fwhm]))               , std(log10.(euclid[qc.Ha, :Ha_br_fwhm]))) 
+@printf("Number of sources with Ha line: %i \n"                      , count(qc.Ha))
+@printf("Mean luminosity for Ha: %.2f +/- %.2f \n"                   , mean(log10.(euclid[qc.Ha, :Ha_br_norm]) .+ 42)         , std(log10.(euclid[qc.Ha, :Ha_br_norm]) .+ 42))
+@printf("Mean FWHM for Ha: %.2f +/- %.2f \n"                         , mean(log10.(euclid[qc.Ha, :Ha_br_fwhm]))               , std(log10.(euclid[qc.Ha, :Ha_br_fwhm]))) 
 @printf("Percentage of sources with Ha FHWM > 10 000 km/s: %.2f %%\n", (count(euclid[qc.Ha, :Ha_br_fwhm] .> 10000.)/length(findall(qc.Ha)))*100)
-@printf("Mean v_off for Ha: %.2f +/- %.2f \n"     , mean(euclid[qc.Ha, :Ha_br_voff])                       , std(euclid[qc.Ha, :Ha_br_voff]))
-@printf("Mean BH mass for Ha: %.2f +/- %.2f \n"   , mean(euclid[qc.Ha, :MBH_Ha_ShenLiu2012])               , std(euclid[qc.Ha, :MBH_Ha_ShenLiu2012]))
-@printf("Mean Edd. ratio for Ha (log): %.2f +/- %.2f \n", mean(filter(!isnan, log10.(euclid[qc.Ha, :Edd_ratio]))), std(filter(!isnan, log10.(euclid[qc.Ha, :Edd_ratio]))))
+@printf("Mean v_off for Ha: %.2f +/- %.2f \n"                        , mean(euclid[qc.Ha, :Ha_br_voff])                       , std(euclid[qc.Ha, :Ha_br_voff]))
+@printf("Mean BH mass for Ha: %.2f +/- %.2f \n"                      , mean(euclid[qc.Ha, :MBH_Ha_ShenLiu2012])               , std(euclid[qc.Ha, :MBH_Ha_ShenLiu2012]))
+@printf("Mean Edd. ratio for Ha (log): %.2f +/- %.2f \n"             , mean(filter(!isnan, log10.(euclid[qc.Ha, :Edd_ratio]))), std(filter(!isnan, log10.(euclid[qc.Ha, :Edd_ratio]))))
 
 @printf("\n")
 
-@printf("Number of sources with Hb line: %i \n"      , count(qc.Hb))
-@printf("Mean luminosity for Hb: %.2f +/- %.2f \n", mean(log10.(euclid[qc.Hb, :Hb_br_norm]) .+ 42)         , std(log10.(euclid[qc.Hb, :Hb_br_norm]) .+ 42))
-@printf("Mean FWHM for Hb: %.2f +/- %.2f \n"      , mean(log10.(euclid[qc.Hb, :Hb_br_fwhm]))               , std(log10.(euclid[qc.Hb, :Hb_br_fwhm])))
+@printf("Number of sources with Hb line: %i \n"                       , count(qc.Hb))
+@printf("Mean luminosity for Hb: %.2f +/- %.2f \n"                    , mean(log10.(euclid[qc.Hb, :Hb_br_norm]) .+ 42)         , std(log10.(euclid[qc.Hb, :Hb_br_norm]) .+ 42))
+@printf("Mean FWHM for Hb: %.2f +/- %.2f \n"                          , mean(log10.(euclid[qc.Hb, :Hb_br_fwhm]))               , std(log10.(euclid[qc.Hb, :Hb_br_fwhm])))
 @printf("Percentage of sources with Hb FHWM > 10 000 km/s: %.2f %% \n", (count(euclid[qc.Hb, :Hb_br_fwhm] .> 10000) / count(qc.Hb))*100)
 
-@printf("Mean v_off for Hb: %.2f +/- %.2f \n"     , mean(euclid[qc.Hb, :Hb_br_voff])                       , std(euclid[qc.Hb, :Hb_br_voff]))
-@printf("Mean BH mass for Hb: %.2f +/- %.2f \n"   , mean(filter(!isnan, euclid[qc.Hb, :MBH_Hb_WuShen2022])), std(filter(!isnan, euclid[qc.Hb, :MBH_Hb_WuShen2022])))
+@printf("Mean v_off for Hb: %.2f +/- %.2f \n"           , mean(euclid[qc.Hb, :Hb_br_voff])                       , std(euclid[qc.Hb, :Hb_br_voff]))
+@printf("Mean BH mass for Hb: %.2f +/- %.2f \n"         , mean(filter(!isnan, euclid[qc.Hb, :MBH_Hb_WuShen2022])), std(filter(!isnan, euclid[qc.Hb, :MBH_Hb_WuShen2022])))
 @printf("Mean Edd. ratio for Hb (log): %.2f +/- %.2f \n", mean(filter(!isnan, log10.(euclid[qc.Hb, :Edd_ratio]))), std(filter(!isnan, log10.(euclid[qc.Hb, :Edd_ratio]))))
 
 @printf("\n")
 
-@printf("Number of sources with MgII line: %i \n"      , count(qc.MgII))
-@printf("Mean luminosity for MgII: %.2f +/- %.2f \n", mean(log10.(euclid[qc.MgII, :MgII_2798_br_norm]) .+ 42)  , std(log10.(euclid[qc.MgII, :MgII_2798_br_norm]) .+ 42))
-@printf("Mean FWHM for MgII: %.2f +/- %.2f \n"      , mean(log10.(euclid[qc.MgII, :MgII_2798_br_fwhm]))        ,  std(log10.(euclid[qc.MgII, :MgII_2798_br_fwhm])))
+@printf("Number of sources with MgII line: %i \n"                       , count(qc.MgII))
+@printf("Mean luminosity for MgII: %.2f +/- %.2f \n"                    , mean(log10.(euclid[qc.MgII, :MgII_2798_br_norm]) .+ 42)  , std(log10.(euclid[qc.MgII, :MgII_2798_br_norm]) .+ 42))
+@printf("Mean FWHM for MgII: %.2f +/- %.2f \n"                          , mean(log10.(euclid[qc.MgII, :MgII_2798_br_fwhm]))        ,  std(log10.(euclid[qc.MgII, :MgII_2798_br_fwhm])))
 @printf("Percentage of sources with MgII FHWM > 10 000 km/s: %.2f %% \n", (count(euclid[qc.MgII, :MgII_2798_br_fwhm] .> 10000) / count(qc.MgII))*100)
 
-@printf("Mean v_off for MgII: %.2f +/- %.2f \n"     , mean(euclid[qc.MgII, :MgII_2798_br_voff])                , std(euclid[qc.MgII, :MgII_2798_br_voff]))
-@printf("Mean BH mass for MgII: %.2f +/- %.2f \n"   , mean(euclid[qc.MgII, :MBH_MgII_WuShen2022])              , std(euclid[qc.MgII, :MBH_MgII_WuShen2022]))
+@printf("Mean v_off for MgII: %.2f +/- %.2f \n"           , mean(euclid[qc.MgII, :MgII_2798_br_voff])                , std(euclid[qc.MgII, :MgII_2798_br_voff]))
+@printf("Mean BH mass for MgII: %.2f +/- %.2f \n"         , mean(euclid[qc.MgII, :MBH_MgII_WuShen2022])              , std(euclid[qc.MgII, :MBH_MgII_WuShen2022]))
 @printf("Mean Edd. ratio for MgII (log): %.2f +/- %.2f \n", mean(filter(!isnan, log10.(euclid[qc.MgII, :Edd_ratio]))), std(filter(!isnan, log10.(euclid[qc.MgII, :Edd_ratio]))))
 
 @printf("\n")
 
-@printf("Number of sources with HeI line: %i \n"      , count(qc.HeI))
-@printf("Mean luminosity for HeI: %.2f +/- %.2f \n", mean(log10.(euclid[qc.HeI , :HeI_10832_br_norm]) .+ 42) , std(log10.(euclid[qc.HeI , :HeI_10832_br_norm]) .+ 42))
-@printf("Mean FWHM for HeI: %.2f +/- %.2f \n"      , mean(log10.(euclid[qc.HeI , :HeI_10832_br_fwhm]))       , std(log10.(euclid[qc.HeI , :HeI_10832_br_fwhm])))
+@printf("Number of sources with HeI line: %i \n"                       , count(qc.HeI))
+@printf("Mean luminosity for HeI: %.2f +/- %.2f \n"                    , mean(log10.(euclid[qc.HeI , :HeI_10832_br_norm]) .+ 42) , std(log10.(euclid[qc.HeI , :HeI_10832_br_norm]) .+ 42))
+@printf("Mean FWHM for HeI: %.2f +/- %.2f \n"                          , mean(log10.(euclid[qc.HeI , :HeI_10832_br_fwhm]))       , std(log10.(euclid[qc.HeI , :HeI_10832_br_fwhm])))
 @printf("Percentage of sources with HeI FHWM > 10 000 km/s: %.2f %% \n", (count(euclid[qc.HeI, :HeI_10832_br_fwhm] .> 10000) / count(qc.HeI))*100)
 
 @printf("Mean v_off for HeI: %.2f +/- %.2f \n"     , mean(euclid[qc.HeI , :HeI_10832_br_voff])               , std(euclid[qc.HeI , :HeI_10832_br_voff]))
@@ -513,21 +573,21 @@ iii = findall(sub.QUBRICS      .& qc.good)
 
 @printf("\n")
 
-@printf("Number of sources with Pab line: %i \n"      , count(qc.Pab))
-@printf("Mean luminosity for Pab: %.2f +/- %.2f \n", mean(log10.(euclid[qc.Pab , :Pab_br_norm]) .+ 42)       , std(log10.(euclid[qc.Pab , :Pab_br_norm]) .+ 42))
-@printf("Mean FWHM for Pab: %.2f +/- %.2f \n"      , mean(log10.(euclid[qc.Pab , :Pab_br_fwhm]))             , std(log10.(euclid[qc.Pab , :Pab_br_fwhm])))
+@printf("Number of sources with Pab line: %i \n"                       , count(qc.Pab))
+@printf("Mean luminosity for Pab: %.2f +/- %.2f \n"                    , mean(log10.(euclid[qc.Pab , :Pab_br_norm]) .+ 42)       , std(log10.(euclid[qc.Pab , :Pab_br_norm]) .+ 42))
+@printf("Mean FWHM for Pab: %.2f +/- %.2f \n"                          , mean(log10.(euclid[qc.Pab , :Pab_br_fwhm]))             , std(log10.(euclid[qc.Pab , :Pab_br_fwhm])))
 @printf("Percentage of sources with Pab FHWM > 10 000 km/s: %.2f %% \n", (count(euclid[qc.Pab, :Pab_br_fwhm] .> 10000) / count(qc.Pab))*100)
 
-@printf("Mean v_off for Pab: %.2f +/- %.2f \n"     , mean(euclid[qc.Pab , :Pab_br_voff])                     , std(euclid[qc.Pab , :Pab_br_voff]))
-@printf("Mean BH mass for Pab: %.2f +/- %.2f \n"   , mean(euclid[qc.Pab, :MBH_Pab_Ricci])                    , std(euclid[qc.Pab, :MBH_Pab_Ricci]))
+@printf("Mean v_off for Pab: %.2f +/- %.2f \n"           , mean(euclid[qc.Pab , :Pab_br_voff])                     , std(euclid[qc.Pab , :Pab_br_voff]))
+@printf("Mean BH mass for Pab: %.2f +/- %.2f \n"         , mean(euclid[qc.Pab, :MBH_Pab_Ricci])                    , std(euclid[qc.Pab, :MBH_Pab_Ricci]))
 @printf("Mean Edd. ratio for Pab (log): %.2f +/- %.2f \n", mean(filter(!isnan, log10.(euclid[qc.Pab, :Edd_ratio]))), std(filter(!isnan, log10.(euclid[qc.Pab, :Edd_ratio]))))
 
 
 @printf("\n")
 
-@printf("Mean bolometric luminosity for good sample: %.2f +/- %.2f \n", mean(filter(!isnan, log10.(euclid[qc.good, :Lbol_mean]))), std(filter(!isnan, log10.(euclid[qc.good, :Lbol_mean]))))
-@printf("Mean BH mass for good sample: %.2f +/- %.2f \n"              , mean(filter(!isnan, euclid[qc.good, :MBH_mean]))         , std(filter(!isnan, euclid[qc.good, :MBH_mean])))
-@printf("Mean Edd. ratio for good sample (log): %.2f +/- %.2f \n"           , mean(filter(!isnan, log10.(euclid[qc.good, :Edd_ratio])))        , std(filter(!isnan, log10.(euclid[qc.good, :Edd_ratio]))))
+@printf("Mean bolometric luminosity for good sample: %.2f +/- %.2f \n", mean(filter(!isnan, log10.(euclid[qc.good, :Lbol_mean])))              , std(filter(!isnan, log10.(euclid[qc.good, :Lbol_mean]))))
+@printf("Mean BH mass for good sample: %.2f +/- %.2f \n"              , mean(filter(!isnan, euclid[qc.good, :MBH_mean]))                       , std(filter(!isnan, euclid[qc.good, :MBH_mean])))
+@printf("Mean Edd. ratio for good sample (log): %.2f +/- %.2f \n"     , mean(filter(!isnan, log10.(euclid[qc.good, :Edd_ratio])))              , std(filter(!isnan, log10.(euclid[qc.good, :Edd_ratio]))))
 
 
 @printf("\n")
@@ -535,25 +595,25 @@ iii = findall(sub.QUBRICS      .& qc.good)
 @printf("Within Euclid \n")
 @printf("Ha and Hb \n")
 ii = qc.Hb .& qc.Ha
-@printf("Number of sources with Ha and HB passing quality and reliability cuts: %i \n", count(ii))
-@printf("Mean ratio of Euclid Ha and Euclid Hb (Balmer decrement): %f +/- %.2f \n"            , mean((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm]))                   , std((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm])))
-@printf("Median ratio of Euclid Ha and Euclid Hb (Balmer decrement): %f +/- %.2f \n"          , median((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm]))                   , mad((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm])))
-@printf("Mean (Median) FWHM of Ha for sources with both Ha and Hb: %.1f +/- %.1f (%.1f +/- %.1f)\n"                   , mean(euclid[ii, :Ha_br_fwhm]), std(euclid[ii, :Ha_br_fwhm]), median(euclid[ii, :Ha_br_fwhm]), mad(euclid[ii, :Ha_br_fwhm], normalize=true))
-@printf("Mean (Median) FWHM of Ha for sources with both Ha and Hb (log): %.2f +/- %.2f (%.2f +/- %.2f)\n"                   , mean(log10.(euclid[ii, :Ha_br_fwhm])), std(log10.(euclid[ii, :Ha_br_fwhm])), median(log10.(euclid[ii, :Ha_br_fwhm])), mad(log10.(euclid[ii, :Ha_br_fwhm]), normalize=true))
-@printf("Mean (Median) FWHM of Hb for sources with both Ha and Hb: %.1f +/- %.1f (%.1f +/- %.1f)\n"                   , mean(euclid[ii, :Hb_br_fwhm]), std(euclid[ii, :Hb_br_fwhm]), median(euclid[ii, :Hb_br_fwhm]), mad(euclid[ii, :Hb_br_fwhm], normalize=true))
-@printf("Mean (Median) FWHM of Hb for sources with both Ha and Hb (log): %.2f +/- %.2f (%.2f +/- %.2f)\n"                   , mean(log10.(euclid[ii, :Hb_br_fwhm])), std(log10.(euclid[ii, :Hb_br_fwhm])), median(log10.(euclid[ii, :Hb_br_fwhm])), mad(log10.(euclid[ii, :Hb_br_fwhm]), normalize=true))
+@printf("Number of sources with Ha and HB passing quality and reliability cuts: %i \n"                                , count(ii))
+@printf("Mean ratio of Euclid Ha and Euclid Hb (Balmer decrement): %f +/- %.2f \n"                                    , mean((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm]))                   , std((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm])))
+@printf("Median ratio of Euclid Ha and Euclid Hb (Balmer decrement): %f +/- %.2f \n"                                  , median((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm]))                 , mad((euclid[ii, :Ha_br_norm] ./ euclid[ii, :Hb_br_norm])))
+@printf("Mean (Median) FWHM of Ha for sources with both Ha and Hb: %.1f +/- %.1f (%.1f +/- %.1f)\n"                   , mean(euclid[ii, :Ha_br_fwhm])                                                , std(euclid[ii, :Ha_br_fwhm])                          , median(euclid[ii, :Ha_br_fwhm])                          , mad(euclid[ii, :Ha_br_fwhm]                                , normalize=true))
+@printf("Mean (Median) FWHM of Ha for sources with both Ha and Hb (log): %.2f +/- %.2f (%.2f +/- %.2f)\n"             , mean(log10.(euclid[ii, :Ha_br_fwhm]))                                        , std(log10.(euclid[ii, :Ha_br_fwhm]))                   , median(log10.(euclid[ii, :Ha_br_fwhm]))                  , mad(log10.(euclid[ii, :Ha_br_fwhm])                        , normalize=true))
+@printf("Mean (Median) FWHM of Hb for sources with both Ha and Hb: %.1f +/- %.1f (%.1f +/- %.1f)\n"                   , mean(euclid[ii, :Hb_br_fwhm])                                                , std(euclid[ii, :Hb_br_fwhm])                          , median(euclid[ii, :Hb_br_fwhm])                                                  , mad(euclid[ii, :Hb_br_fwhm]        , normalize=true))
+@printf("Mean (Median) FWHM of Hb for sources with both Ha and Hb (log): %.2f +/- %.2f (%.2f +/- %.2f)\n"                   , mean(log10.(euclid[ii, :Hb_br_fwhm]))                                  , std(log10.(euclid[ii, :Hb_br_fwhm]))                   , median(log10.(euclid[ii, :Hb_br_fwhm]))                                          , mad(log10.(euclid[ii, :Hb_br_fwhm]), normalize=true))
 
 @printf("\n")
 @printf("With DESI \n")
 iii= qc_match.Ha .& qc_desi.MgII
-@printf("Number of sources with Ha in Euclid and MgII in DESI: %i \n", count(iii))
-@printf("Mean ratio of Euclid Ha and DESI MgII (log): %.2f +/- %.2f \n"    , mean(log10.(euclid_match[iii, :Ha_br_norm] ./ desi[iii, :MgII_2798_br_norm])), std(log10.(euclid_match[iii, :Ha_br_norm] ./ desi[iii, :MgII_2798_br_norm])))
+@printf("Number of sources with Ha in Euclid and MgII in DESI: %i \n"         , count(iii))
+@printf("Mean ratio of Euclid Ha and DESI MgII (log): %.2f +/- %.2f \n"       , mean(log10.(euclid_match[iii, :Ha_br_norm] ./ desi[iii, :MgII_2798_br_norm]))                    , std(log10.(euclid_match[iii, :Ha_br_norm] ./ desi[iii, :MgII_2798_br_norm])))
 @printf("Difference between DESI MgII BHM and Euclid Ha BHM: %.2f +/- %.2f \n", median(filter(!isnan, euclid_match[iii, :MBH_Ha_ShenLiu2012] .- desi[iii, :MBH_MgII_WuShen2022])), mad(filter(!isnan, euclid_match[iii, :MBH_Ha_ShenLiu2012] .- desi[iii, :MBH_MgII_WuShen2022]), normalize=true))
 
 @printf("\n")
 
 iii = qc_match.Hb .& qc_desi.MgII
-@printf("Number of sources with Hb in Euclid and MgII in DESI: %i \n", count(iii))
+@printf("Number of sources with Hb in Euclid and MgII in DESI: %i \n"      , count(iii))
 @printf("Mean ratio of Euclid Hb and DESI MgII (log): %f +/- %.2f \n"      , mean(log10.(euclid_match[iii, :Hb_br_norm] ./ desi[iii, :MgII_2798_br_norm])), std(log10.(euclid_match[iii, :Hb_br_norm] ./ desi[iii, :MgII_2798_br_norm])))
 
 
