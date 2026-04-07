@@ -26,7 +26,13 @@ function analyze_spec(input_path, output_path, row; clob=false)
     ebv = SFD98Map()(gal_coords.l, gal_coords.b)
 
     spec = Spectrum(Val(:ASCII), input_filename, columns=[1,2,3], resolution=2857, label=string(row[:id_DESI_DR1]))
-    recipe = CRecipe{Type1}(redshift=row[:Z], use_host_template=true, Av=ebv * 3.1)
+    
+    if row[:Z]>=0.454
+        recipe = CRecipe{Type1}(redshift=row[:Z], use_host_template=false, Av=ebv * 3.1)
+    else
+        recipe = CRecipe{Type1}(redshift=row[:Z], use_host_template=true, Av=ebv * 3.1)
+    end
+    
     res = analyze(recipe, spec)
 
     TypedJSON.serialize(output_filename, res, compress=true)
