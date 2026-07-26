@@ -58,9 +58,13 @@ function analyze_spec(input_path, output_path, row; clob=false)
     spec = Spectrum(Val(:EUCLID), input_filename, label=string(row[:object_id]))
     recipe = CRecipe{WP9Type1IR}(redshift=row[:Z], use_host_template=false, Av=ebv * 3.1, n_nuisance=2)
     resNoHost = analyze(recipe, spec)
-
+    BICNoHost = (resNoHost.fsumm.fitstat*resNoHost.fsumm.nfree) + ((resNoHost.fsumm.nfree) * (log(resNoHost.fsumm.ndata)))
+    
+    
     recipe.use_host_template = true
     resWithHost = analyze(recipe, spec)
+    res = resWithHost
+    BICWithHost = (resWithHost.fsumm.fitstat*resWithHost.fsumm.nfree) + ((resWithHost.fsumm.nfree) * (log(resWithHost.fsumm.ndata)))
 
     
     if row[:Z]>=2.6
@@ -68,7 +72,7 @@ function analyze_spec(input_path, output_path, row; clob=false)
     else
         if !(:QSOcont in keys(resNoHost.post[:Issues]))  &&
            !(:QSOcont in keys(resWithHost.post[:Issues]))
-            if resNoHost.fsumm.fitstat < resWithHost.fsumm.fitstat
+            if BICNoHost < BICWithHost
                 res = resNoHost
             else
                 res = resWithHost
@@ -93,7 +97,7 @@ function read_results(output_path, row)
     @info "Reading $filename ..."
     res = TypedJSON.deserialize(filename)
     out = OrderedDict(:ID => row.object_id,
-                      :Redshift => row.Z, :Hmag => row.HMAG, :Ref_QUBRICS => row.ref_QUBRICS, :QUBRICS => row.QUBRICS, :DESI => row.DESI, :FU => row.FU, :redchisq => res.fsumm.fitstat,
+                      :Redshift => row.Z, :Hmag => row.HMAG, :Ref_QUBRICS => row.ref_QUBRICS, :QUBRICS => row.QUBRICS, :DESI => row.DESI, :FU => row.FU, :EDFN => row.EDFN, :EDFS => row.EDFS, :EDFF => row.EDFF, :redchisq => res.fsumm.fitstat,
                       :NPOINTS => res.fsumm.ndata, :SNR => res.post[:Data_stats][:SNR], :DER_SNR => res.post[:Data_stats][:DER_SNR], :nneg => res.post[:Data_stats][:nneg],
                       :L3000 => res.post[:Continuum_luminosity][:l3000],
                       :L5100 => res.post[:Continuum_luminosity][:l5100])
