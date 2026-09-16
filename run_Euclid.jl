@@ -96,7 +96,7 @@ function read_results(output_path, row)
 
     @info "Reading $filename ..."
     res = TypedJSON.deserialize(filename)
-    out = OrderedDict(:ID => row.object_id,
+    out = OrderedDict(:ID => row.object_id, :RA => row.ra, :Dec => row.dec,
                       :Redshift => row.Z, :Hmag => row.HMAG, :Ref_QUBRICS => row.ref_QUBRICS, :QUBRICS => row.QUBRICS, :DESI => row.DESI, :FU => row.FU, :EDFN => row.EDFN, :EDFS => row.EDFS, :EDFF => row.EDFF, :redchisq => res.fsumm.fitstat,
                       :NPOINTS => res.fsumm.ndata, :SNR => res.post[:Data_stats][:SNR], :DER_SNR => res.post[:Data_stats][:DER_SNR], :nneg => res.post[:Data_stats][:nneg],
                       :L3000 => res.post[:Continuum_luminosity][:l3000],

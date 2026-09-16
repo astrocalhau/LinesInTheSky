@@ -45,7 +45,7 @@ function read_results(output_path, row)
 
     @info "Reading $filename ..."
     res = TypedJSON.deserialize(filename)
-    out = OrderedDict(:ID_DESI => row.id_DESI_DR1, :ID_EUCLID => row.object_id,
+    out = OrderedDict(:ID_DESI => row.id_DESI_DR1, :ID_EUCLID => row.object_id, :RA => row.ra, :Dec => row.dec,
                       :Redshift => row.Z, :Source => row.CAT, :redchisq => res.fsumm.fitstat,
                       :NPOINTS => res.fsumm.ndata, :SNR => res.post[:Data_stats][:SNR], :DER_SNR => res.post[:Data_stats][:DER_SNR], :nneg => res.post[:Data_stats][:nneg],
                       :L3000 => res.post[:Continuum_luminosity][:l3000],
