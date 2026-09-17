@@ -11,17 +11,35 @@ Paper: (TODO: add arXiv, ADS link)
 tar xvf input.tar.gz
 ```
 
-- In the `LinesInTheSky` folder start julia with the following command line:
+- The first time you run the code:
+	- In the `LinesInTheSky` folder start julia with the following command line:
+	```
+	julia --project=.
+	```
+
+	- Install code depencies with:
+
+	```
+	using Pkg
+	Pkg.instantiate()
+	```
+
+	- Install the required dust maps with:
+	```
+	using DustExtinction
+	dustmap = SFD98Map()
+	```
+	You will receive a prompt to install the dust maps, which you should accept. This only happens the first time the package is run.
+	
+	- Exit julia with:
+	```
+	exit()
+	```
+
+- In the LinesInTheSky folder start julia with multithreading with the following command line (This is also the starting point for all subsequent runs of the code):
 ```
 julia --project=. -t auto
 ```
-
-- Install code depencies with:
-```
-using Pkg
-Pkg.instantiate()
-```
-(note: this step is necessary only the first time you run the code)
 
 - Depending on whether you want to analyze Euclid or DESI spectra, run the analisys with:
 ```
