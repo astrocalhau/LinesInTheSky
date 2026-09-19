@@ -68,9 +68,11 @@ end
 
 function add_MBH_Pab_Ricci!(cc)
     cc[!, :MBH_Pab_Ricci] .= NaN
-    i = findall(cc.Pab_br_reliable .=== 1)
-    # log(M_BH/M_sun) = 7.94+0.872(+/- 0.040) x { 2x[log(FWHM/1e+4 km/s)] + 0.5x[log(L_Pa_b/1e+40 erg/s]}
-    cc[i, :MBH_Pab_Ricci] .= 7.94 .+ 0.872 .* (2 .* log10.(cc.Pab_br_fwhm[i] ./ 1e4) .+ 0.5 .* log10.(cc.Pab_br_norm[i] .* 1e2))
+    if "Pab_br_reliable" in names(cc)
+        i = findall(cc.Pab_br_reliable .=== 1)
+        # log(M_BH/M_sun) = 7.94+0.872(+/- 0.040) x { 2x[log(FWHM/1e+4 km/s)] + 0.5x[log(L_Pa_b/1e+40 erg/s]}
+        cc[i, :MBH_Pab_Ricci] .= 7.94 .+ 0.872 .* (2 .* log10.(cc.Pab_br_fwhm[i] ./ 1e4) .+ 0.5 .* log10.(cc.Pab_br_norm[i] .* 1e2))
+    end
 end
 
 function add_MBH_HeI_Ricci!(cc)
@@ -81,28 +83,34 @@ function add_MBH_HeI_Ricci!(cc)
 end
 
 function add_Lbol_eddratio_Euclid!(cc)
-    j = findall(skip_NaN_missing((cc.Pab_br_reliable .===1) .&
-    				    (cc.Pab_br_norm .> 0 )))
-    k = findall(skip_NaN_missing((cc.HeI_10832_br_reliable .===1) .&
-    				    (cc.HeI_10832_br_norm .> 0 )))
-    L_Pab = log10.(cc.Pab_br_norm[j] .* 1.0E42)
-    L_HeI = log10.(cc.HeI_10832_br_norm[k] .* 1.0E42)
     L_sun = 3.828E33 # erg/s
-    L_2_10keV_Pab = (10 .^ (L_Pab .+ 2.13)) ./ L_sun #From L_Pab to LX
-    L_2_10keV_HeI = (10 .^ (L_HeI .+ 2.13)) ./ L_sun #From L_HeI to LX
-    KX_Pab = 15.33 .* (1 .+ (log10.(L_2_10keV_Pab) ./ 11.48) .^ 16.2) # bolometric correction
-    KX_HeI = 15.33 .* (1 .+ (log10.(L_2_10keV_HeI) ./ 11.48) .^ 16.2) # bolometric correction
-    
     cc.Lbol_3000 = 5.15e44 .* cc.L3000 .* 1e-2
     cc.Lbol_5100 = 9.26e44 .* cc.L5100 .* 1e-2
-    cc[!, :Lbol_LX_Pab] .= NaN
+    
+    #Pab-based Lbol
+    if "Pab_br_reliable" in names(cc)
+        j = findall(skip_NaN_missing((cc.Pab_br_reliable .===1) .&
+    				    (cc.Pab_br_norm .> 0 )))
+        L_Pab = log10.(cc.Pab_br_norm[j] .* 1.0E42)
+        L_2_10keV_Pab = (10 .^ (L_Pab .+ 2.13)) ./ L_sun #From L_Pab to LX
+        KX_Pab = 15.33 .* (1 .+ (log10.(L_2_10keV_Pab) ./ 11.48) .^ 16.2) # bolometric correction
+        cc[!, :Lbol_LX_Pab] .= NaN
+        allowmissing!(cc, :Lbol_LX_Pab)
+        cc[j, :Lbol_LX_Pab] .= (L_2_10keV_Pab .* L_sun) .* KX_Pab
+    end
+    
+    #HeI-based Lbol
+    k = findall(skip_NaN_missing((cc.HeI_10832_br_reliable .===1) .&
+    				    (cc.HeI_10832_br_norm .> 0 )))
+    L_HeI = log10.(cc.HeI_10832_br_norm[k] .* 1.0E42)
+    L_2_10keV_HeI = (10 .^ (L_HeI .+ 2.13)) ./ L_sun #From L_HeI to LX
+    KX_HeI = 15.33 .* (1 .+ (log10.(L_2_10keV_HeI) ./ 11.48) .^ 16.2) # bolometric correction
     cc[!, :Lbol_LX_HeI] .= NaN
-    allowmissing!(cc, :Lbol_LX_Pab)
     allowmissing!(cc, :Lbol_LX_HeI)
-    cc[j, :Lbol_LX_Pab] .= (L_2_10keV_Pab .* L_sun) .* KX_Pab
     cc[k, :Lbol_LX_HeI] .= (L_2_10keV_HeI .* L_sun) .* KX_HeI
     cc.Lbol_mean .= 0.
     allowmissing!(cc, :Lbol_mean)
+    
     for i in 1:nrow(cc)
         try
 	        cc[i, :Lbol_mean] = mean(skip_NaN_missing([cc[i, :Lbol_3000], cc[i, :Lbol_5100], cc[i, :Lbol_LX_Pab], cc[i, :Lbol_LX_HeI]]))
