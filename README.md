@@ -1,6 +1,12 @@
 # Lines in the sky
 
-Paper: (TODO: add arXiv, ADS link)
+Paper: 
+
+ArXiV
+
+ADS
+
+If you are only interested in the final output tables, you can get them [here](https://drive.google.com/file/d/1txXBGhrfv7xWRckxJOFjso4857_3k6Na/view?usp=sharing)
 
 ## Usage
 - Install Julia (https://julialang.org/downloads/);
