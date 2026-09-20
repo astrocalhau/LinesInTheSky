@@ -10,7 +10,6 @@ f = FITS("results_Euclid/QSFIT_RESULTS.fits")
 euclid = DataFrame(f[2])
 close(f)
 
-#f = FITS("results_DESI/QSFIT_RESULTS_w_errors.fits")
 f = FITS("results_DESI/QSFIT_RESULTS.fits")
 desi = DataFrame(f[2])
 close(f)
@@ -143,7 +142,6 @@ let
         end
     end
     
-    # plot(; GEN_OPTS..., legend=:topright, xlabel=L"\alpha_{\lambda}", ylabel=L"\mathrm{Counts}")
     SERIES_OPTS = (bins=minimum(euclid.QSOcont_alpha):0.25:maximum(euclid.QSOcont_alpha), fillalpha=0.8, fill=true, linewidth=false,
                    bottom_margin=(-3.5, :mm), top_margin=(-1.5, :mm), # <-- these are necessary to reduce space between the subplots
                    left_margin=(-2.5, :mm), # <-- to reduce wasted space to the left of the plot
