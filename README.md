@@ -6,7 +6,9 @@ ArXiV
 
 ADS
 
-If you are only interested in the final output tables, you can get them [here](https://drive.google.com/file/d/1txXBGhrfv7xWRckxJOFjso4857_3k6Na/view?usp=sharing)
+**If you are only interested in the final output tables, you can get them** [here](https://drive.google.com/file/d/1txXBGhrfv7xWRckxJOFjso4857_3k6Na/view?usp=sharing)
+
+We have created a webpage for the exploration of the individual sources in the resulting catalogues and cross-referencing with other existing catalogues. For the QSOs in the **Euclid** results catalogue follow [this link](https://catsweb.oas.inaf.it/?catname=Q1_Calhau26_NISP&coords=56.944934,-35.518732&radius=1885.640&survey=dss) and for the DESI QSOs also analysed in this paper follow [this link](https://catsweb.oas.inaf.it/?catname=Q1_Calhau26_DESI&coords=269.527787,66.604014&radius=570.090&survey=dss). It is possible to change between catalogues from the same page. **This is a work in progress** so the page may be unintuitive and subject to change.
 
 ## Usage
 - Install Julia (https://julialang.org/downloads/);
