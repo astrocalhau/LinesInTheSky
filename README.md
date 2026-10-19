@@ -10,8 +10,8 @@ ADS
 
 We have created a webpage for the exploration of the individual sources in the resulting catalogues and cross-referencing with other existing catalogues. For the QSOs in the **Euclid** results catalogue follow [this link](https://catsweb.oas.inaf.it/?catname=Q1_Calhau26_NISP&coords=56.944934,-35.518732&radius=1885.640&survey=dss) and for the DESI QSOs also analysed in this paper follow [this link](https://catsweb.oas.inaf.it/?catname=Q1_Calhau26_DESI&coords=269.527787,66.604014&radius=570.090&survey=dss). It is possible to change between catalogues from the same page. The following images show a brief explanation of the functionalities available:
 
-![](../../Downloads/Webpage_explanation.png)
-![](../../Downloads/Webpage_explanation(1).png)
+![](./Readme_images/Webpage_explanation.png)
+![](./Readme_images/Webpage_explanation_2.png)
 
 ## Usage
 - Install Julia (https://julialang.org/downloads/);
