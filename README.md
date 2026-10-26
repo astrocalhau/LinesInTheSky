@@ -2,7 +2,7 @@
 
 Paper: 
 
-ArXiV
+[ArXiV](https://arxiv.org/abs/2609.20947)
 
 ADS
 
